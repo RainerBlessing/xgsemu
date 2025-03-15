@@ -1,0 +1,199 @@
+<?xml version="1.0"?>
+<!DOCTYPE Code::Blocks_project_file>
+<Code::Blocks_project_file>
+	<FileVersion major="1" minor="1"/>
+	<Project>
+		<Option title="xgsemu"/>
+		<Option makefile="Makefile"/>
+		<Option makefile_is_custom="0"/>
+		<Option compiler="1"/>
+		<Build>
+			<Target title="xgsemu - Win32 Release">
+				<Option output="C:\Program Files\xgsemu\Release\xgsemu.exe"/>
+				<Option working_dir="."/>
+				<Option object_output="Release"/>
+				<Option deps_output=".deps"/>
+				<Option external_deps=""/>
+				<Option type="0"/>
+				<Option compiler="1"/>
+				<Option projectResourceIncludeDirsRelation="0"/>
+				<Compiler>
+					<Add option="/MD"/>
+					<Add option="/GX"/>
+					<Add option="/O2"/>
+					<Add option="/W3"/>
+					<Add option="/FD"/>
+					<Add option="/GB"/>
+					<Add option="/DWIN32"/>
+					<Add option="/DNDEBUG"/>
+					<Add option="/D_WINDOWS"/>
+					<Add option="/D_MBCS"/>
+					<Add directory="C:\wxWidgets-2.6.0\include"/>
+				</Compiler>
+			</Target>
+			<Target title="xgsemu - Win32 Debug">
+				<Option output="C:\Program Files\xgsemu\Debug\xgsemu.exe"/>
+				<Option working_dir="."/>
+				<Option object_output="Debug"/>
+				<Option deps_output=".deps"/>
+				<Option external_deps=""/>
+				<Option type="0"/>
+				<Option compiler="1"/>
+				<Option projectResourceIncludeDirsRelation="0"/>
+				<Compiler>
+					<Add option="/MDd"/>
+					<Add option="/Gm"/>
+					<Add option="/G5"/>
+					<Add option="/GX"/>
+					<Add option="/Od"/>
+					<Add option="/W3"/>
+					<Add option="/ZI"/>
+					<Add option="/FD"/>
+					<Add option="/GZ"/>
+					<Add option="/DWIN32"/>
+					<Add option="/D_DEBUG"/>
+					<Add option="/D_WINDOWS"/>
+					<Add option="/D_MBCS"/>
+					<Add directory="C:\wxWidgets-2.6.0\include"/>
+				</Compiler>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add directory="..\SDL-1.2.8\include"/>
+			<Add directory="..\..\wxWidgets-2.6.0\include"/>
+		</Compiler>
+		<Linker>
+			<Add library="..\SDL-1.2.8\lib\SDL.lib"/>
+			<Add library="..\..\wxWidgets-2.6.0\lib\vc_lib\wxbase26.lib"/>
+			<Add directory="..\SDL-1.2.8\lib"/>
+			<Add directory="..\..\wxWidgets-2.6.0\lib\vc_lib"/>
+		</Linker>
+		<Unit filename="README.txt">
+			<Option compilerVar=""/>
+			<Option compile="0"/>
+			<Option link="0"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="StdAfx.cpp">
+			<Option compilerVar="CPP"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="StdAfx.h">
+			<Option compilerVar=""/>
+			<Option compile="0"/>
+			<Option link="0"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="Video.cpp">
+			<Option compilerVar="CPP"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="Video.h">
+			<Option compilerVar=""/>
+			<Option compile="0"/>
+			<Option link="0"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="cpu.cpp">
+			<Option compilerVar="CPP"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="cpu.h">
+			<Option compilerVar=""/>
+			<Option compile="0"/>
+			<Option link="0"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="filehandler.cpp">
+			<Option compilerVar="CPP"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="filehandler.h">
+			<Option compilerVar=""/>
+			<Option compile="0"/>
+			<Option link="0"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="findapppath.cpp">
+			<Option compilerVar="CPP"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="hex_file.cpp">
+			<Option compilerVar="CPP"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="hex_file.h">
+			<Option compilerVar=""/>
+			<Option compile="0"/>
+			<Option link="0"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="objfile.cpp">
+			<Option compilerVar="CPP"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="objfile.h">
+			<Option compilerVar=""/>
+			<Option compile="0"/>
+			<Option link="0"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="sdlpanel.cpp">
+			<Option compilerVar="CPP"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="sdlpanel.h">
+			<Option compilerVar=""/>
+			<Option compile="0"/>
+			<Option link="0"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="sxkey.h">
+			<Option compilerVar=""/>
+			<Option compile="0"/>
+			<Option link="0"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="xgsemu.cpp">
+			<Option compilerVar="CPP"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="xgsemu.h">
+			<Option compilerVar=""/>
+			<Option compile="0"/>
+			<Option link="0"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="xgsemuframe.cpp">
+			<Option compilerVar="CPP"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+		<Unit filename="xgsemuframe.h">
+			<Option compilerVar=""/>
+			<Option compile="0"/>
+			<Option link="0"/>
+			<Option target="xgsemu - Win32 Release"/>
+			<Option target="xgsemu - Win32 Debug"/>
+		</Unit>
+	</Project>
+</Code::Blocks_project_file>

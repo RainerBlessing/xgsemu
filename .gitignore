@@ -1,0 +1,64 @@
+# Visual Studio Dateien
+.vscode/
+*.code-workspace
+
+# Build- und Binärdateien
+*.exe
+*.dll
+*.lib
+*.obj
+*.o
+*.ilk
+*.pdb
+*.idb
+*.sdf
+*.tlog
+*.VC.db
+*.VC.opendb
+*.iobj
+*.ipdb
+
+# Zwischendateien und Logs
+*.log
+*.tmp
+*.user
+*.aps
+*.ncb
+*.suo
+*.sln.docstates
+
+# CMake Build-Verzeichnisse
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Visual Studio Build-Verzeichnisse
+[Bb]uild/
+[Dd]ebug/
+[Rr]elease/
+[x64]/
+[x86]/
+[Ww]in32/
+
+# NuGet Packages
+packages/
+
+# vcpkg Cache
+vcpkg_installed/
+
+# Sonstige IDE-spezifische Dateien
+.ipch/
+*.tlog
+*.lastbuildstate
+
+# Clangd und andere Editor-spezifische Dateien
+.clangd/
+.clangd-cache/
+*.clangd
+
+# C++ Test-Frameworks
+Testing/
+CTestTestfile.cmake
+DartConfiguration.tcl
+

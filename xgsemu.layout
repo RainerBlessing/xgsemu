@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<!DOCTYPE Code::Blocks_layout_file>
+<Code::Blocks_layout_file>
+	<File name="Video.cpp" open="1" top="0">
+		<Cursor position="4442" topLine="142"/>
+	</File>
+	<File name="Video.h" open="1" top="0">
+		<Cursor position="34" topLine="0"/>
+	</File>
+	<File name="cpu.cpp" open="1" top="0">
+		<Cursor position="878" topLine="36"/>
+	</File>
+	<File name="filehandler.cpp" open="1" top="0">
+		<Cursor position="842" topLine="16"/>
+	</File>
+	<File name="hex_file.cpp" open="1" top="1">
+		<Cursor position="171" topLine="0"/>
+	</File>
+	<File name="hex_file.h" open="1" top="0">
+		<Cursor position="382" topLine="10"/>
+	</File>
+	<File name="objfile.cpp" open="1" top="0">
+		<Cursor position="2172" topLine="55"/>
+	</File>
+	<File name="sdlpanel.cpp" open="1" top="0">
+		<Cursor position="4332" topLine="155"/>
+	</File>
+	<File name="sdlpanel.h" open="1" top="0">
+		<Cursor position="1612" topLine="16"/>
+	</File>
+	<File name="xgsemu.cpp" open="1" top="0">
+		<Cursor position="518" topLine="0"/>
+	</File>
+	<File name="xgsemuframe.cpp" open="1" top="0">
+		<Cursor position="4080" topLine="97"/>
+	</File>
+</Code::Blocks_layout_file>

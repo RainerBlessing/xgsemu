@@ -1,0 +1,6 @@
+This is an XGS emulator. Interrupts are not implemented. There
+is also no sound.
+
+The example directory contains all running demos.
+
+Joystick1 keys: Cursor keys+ Ctrl (Fire)

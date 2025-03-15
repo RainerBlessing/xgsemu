@@ -1,0 +1,27 @@
+0.01 - 29.08.05
+
+- initial release
+
+0.02 - 31.08.05
+
+- the emulator is now much faster, the emulator runs at about 77MHz on a 2083MHz Athlon
+
+0.03 - 01.09.05
+
+- colour is working better
+- more examples were added
+
+0.04 - 04.09.05
+
+- lots of bugs were fixed in the command interpreter
+- some bugs were fixed in the video part
+- only every second frame is drawn which should make the
+  emulator faster
+- all working xgs demos were added to the example folder
+
+0.05 - 27.09.05
+
+- joystick1 is emulated (Cursor keys+ Ctrl)
+- SRAM access should be working
+- some bug in the command interpreter were fixed
+
