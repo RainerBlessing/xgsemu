@@ -105,6 +105,14 @@ private:
 	int prescaler; // prescaler for the timer
 	Video* video;
 	Uint16 joystickr;
+	inline USHORT getRegisterIndex(USHORT fr);
+	inline void updateZeroFlag(USHORT value);
+	void setBit(USHORT fr, USHORT bit, bool setValue);
+	void skipInstructions();
+	void movFrW(USHORT fr);
+	void movWFr(USHORT fr) ;
+	void incDecFr(USHORT fr, bool increment);
+	void logicOperation(USHORT fr, USHORT operation, bool wToFr);
 };
 #endif
 
