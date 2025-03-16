@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 project(xgsemu VERSION 0.6.0)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Use C++11 standard instead of C++98
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -39,32 +41,14 @@ include_directories(${wxWidgets_INCLUDE_DIRS})
 # Add wxWidgets definitions and flags
 include(${wxWidgets_USE_FILE})
 
-# Source files
-set(SOURCES
-    cpu.cpp
-    filehandler.cpp
-    findapppath.cpp
-    hex_file.cpp
-    objfile.cpp
-    sdlpanel.cpp
-    StdAfx.cpp
-    Video.cpp
-    xgsemu.cpp
-    xgsemuframe.cpp
+# Source files - nur aus src/ Verzeichnis
+file(GLOB SOURCES
+    "src/*.cpp"
 )
 
-# Header files
-set(HEADERS
-    cpu.h
-    filehandler.h
-    hex_file.h
-    objfile.h
-    sdlpanel.h
-    StdAfx.h
-    sxkey.h
-    Video.h
-    xgsemu.h
-    xgsemuframe.h
+# Header files - nur aus src/ Verzeichnis
+file(GLOB HEADERS
+    "src/*.h"
 )
 
 # Create executable

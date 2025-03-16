@@ -81,7 +81,11 @@ XGSEmuFrame::OnLoad( wxCommandEvent& WXUNUSED( event ) )
 	wxString directory = wxT("");
 	wxConfig *config = new wxConfig(wxT("XGSEmu"));
 	config->Read(wxT("LoadDirectory"), &directory);
-	wxFileDialog d( this, _("Choose a file"), directory, wxT(""), wxT("*.hex;*.obj"));
+	wxFileDialog d( this, _("Choose a file"), directory, wxT(""), wxT("*.hex;*.obj"), 
+                wxFD_OPEN | wxFD_FILE_MUST_EXIST, 
+                wxDefaultPosition, 
+                wxDefaultSize, 
+                wxT("XGS File Selector"));
 	if (d.ShowModal() == wxID_OK)
 	{
 		panel->load(d.GetPath().mb_str());

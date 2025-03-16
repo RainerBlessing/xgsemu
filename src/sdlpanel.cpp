@@ -53,22 +53,13 @@ SDLPanel::SDLPanel(wxWindow *parent) : wxPanel(parent, ID_PANEL), screen(NULL)
 	cpu = 0;
 	video = new Video();
 	screen = video->getScreen();
-	//fh.readFile ("/home/rainer/src/sx/ntsc/Racer/racer_01.hex", ROM);
-	//fh.readFile ("/home/rainer/src/sx/ntsc/Pac_Man/rem_pac_01.hex", ROM);
 	SetFocus();
-	//fh.readFile ("/home/rainer/src/sx/ntsc/Plasma/mic_plasma_01.hex", ROM);
-
 }
 
 SDLPanel::~SDLPanel()
 {
-	if (screen != NULL)
-	{
-		SDL_FreeSurface(screen);
-	}
 	delete video;
 	delete cpu;
-	delete fh;
 }
 
 void SDLPanel::onPaint(wxPaintEvent &)
@@ -165,15 +156,14 @@ void SDLPanel::onKeyUp(wxKeyEvent &event)
 
 void SDLPanel::load(const char* path)
 {
-	if (video == 0)delete video;
+	if (video != 0)delete video;
 	video = new Video();
 	screen = video->getScreen();
-	if (cpu == 0)delete cpu;
+	if (cpu != 0)delete cpu;
 	cpu = new Cpu(video);
-	joystickr = cpu->getJoystrickr();
-	USHORT* ROM = cpu->getROM();
+	joystickr = cpu->getJoystrickr();	
 	FileHandler fh;
-	fh.readFile (path, ROM);
+	fh.readFile (path, cpu->getROM());
 }
 
 void SDLPanel::reset()

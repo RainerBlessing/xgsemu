@@ -24,7 +24,7 @@ Video::Video()
 	amask = 0xff000000;
 	#endif
 	//screen = SDL_CreateRGBSurface(SDL_SWSURFACE,526, 520, 32, rmask, gmask, bmask, 0);
-	screen = SDL_CreateRGBSurface(SDL_SWSURFACE, 528, 520, 24, 0xff0000, 0xff00, 0xff, 0);
+	screen = SDL_CreateRGBSurface(SDL_SWSURFACE, 560, 525, 24, 0xff0000, 0xff00, 0xff, 0);
 	if ( !screen)
 	{
 		fprintf(stderr, "Couldn't create a surface: %s\n",
@@ -82,6 +82,7 @@ Video::Video()
 
 Video::~Video()
 {
+	SDL_FreeSurface(screen);
 	SDL_Quit();
 }
 
@@ -116,8 +117,10 @@ void Video::changeVideo(int cycle, unsigned char colour)
 		         (fragmentcounter == 0 && cycle - slfragments[999].cycles > 360))
 		{
 			x = 0;
-			y++;
-			y++;
+			if(y<519){
+				y++;
+				y++;
+			}
 			yc = fragmentcounter;
 			line = false;
 		}
@@ -154,8 +157,8 @@ void Video::changeVideo(int cycle, unsigned char colour)
 
 			if (x0 < 50)x0 = 50;
 			if (x < 50)x = 50;
-			if (x > 526)x = 526;
-			if (x0 > 526)x0 = 526;
+			if (x > 560)x = 560;
+			if (x0 > 560)x0 = 560;
 
 			x0 = (x0 - 50) * 1.1;
 			x = (x - 50) * 1.1;
@@ -174,13 +177,14 @@ void Video::changeVideo(int cycle, unsigned char colour)
 			}
 			else r = g = b = i;
 			r = SDL_MapRGB(screen->format, r, g, b);
-			for (int k = x0;k < x;k++)
+			int k;
+			for (k = x0;k < x;k++)
 			{
 				ubuff32 = (Uint32*)(ubuff8 + k * screen->format->BytesPerPixel);
 				*ubuff32 = r;
 			}
 			ubuff8 = (unsigned char*)screen->pixels + (y + 1) * screen->pitch;
-			for (int k = x0;k < x;k++)
+			for (k = x0;k < x;k++)
 			{
 				ubuff32 = (Uint32*)(ubuff8 + k * screen->format->BytesPerPixel);
 				*ubuff32 = r;

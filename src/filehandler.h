@@ -21,9 +21,9 @@
 
 #include "hex_file.h"
 
-class FileHandler: HexFile
+class FileHandler
 {
 public:
-	bool readFile(const char *fn, u16 * sx );
+	static bool readFile(const char *fn, u16 * sx );
 };
 #endif

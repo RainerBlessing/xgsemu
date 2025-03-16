@@ -20,7 +20,7 @@
 #ifndef SDLPANEL_H
 #define SDLPANEL_H
 
-class SDL_Surface ;
+struct SDL_Surface;
 class Video;
 class Cpu;
 class FileHandler;
@@ -37,7 +37,6 @@ private:
 	Video *video;
 	Cpu *cpu;
 	wxUint16* joystickr;
-	FileHandler* fh;
 	/**
 	 * Called to paint the panel.
 	 *
@@ -63,8 +62,8 @@ private:
 	 * Creates the SDL_Surface used by this SDLPanel.
 	 */
 	void createScreen();
-	void SDLPanel::onKeyDown(wxKeyEvent &event);
-	void SDLPanel::onKeyUp(wxKeyEvent &event);
+	void onKeyDown(wxKeyEvent &event);
+	void onKeyUp(wxKeyEvent &event);
 public:
 	/**
 	 * Creates a new SDLPanel.
@@ -77,8 +76,8 @@ public:
 	 * Destructs this SDLPanel.
 	 */
 	~SDLPanel();
-	void SDLPanel::load(const char* path);
-	void SDLPanel::reset();
+	void load(const char* path);
+	void reset();
 };
 
 #endif

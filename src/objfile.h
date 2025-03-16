@@ -19,7 +19,7 @@
 ***************************************************************************/
 #ifndef OBJFILE_H
 #define OBJFILE_H
-#include "hex_file.h"
+
 #include "sxkey.h"
 
 /**
