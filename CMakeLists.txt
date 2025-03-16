@@ -71,7 +71,7 @@ endif()
 
 # Define preprocessor macros
 target_compile_definitions(xgsemu PRIVATE 
-    XGSE_VERSION="0.06"
+    XGSE_VERSION="0.07"
 )
 
 # Füge NDEBUG nur für Release-Builds hinzu
@@ -126,5 +126,59 @@ if(GIT_FOUND)
         COMMAND ${GIT_EXECUTABLE} archive --format=zip --prefix=xgsemu-${PROJECT_VERSION}/ --output=${CMAKE_BINARY_DIR}/xgsemu-${PROJECT_VERSION}.zip HEAD
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
         COMMENT "Creating ZIP archive with version prefix"
+    )
+endif()
+
+# Option für Unit Tests
+option(BUILD_TESTS "Build the unit tests" ON)
+
+if(BUILD_TESTS)
+    # Google Test Framework einbinden
+    include(FetchContent)
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG release-1.12.1
+    )
+    # For Windows: Prevent overriding the parent project's compiler/linker settings
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+    
+    # Test-Verzeichnis erstellen, falls es nicht existiert
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+    
+    # Alle Test-Quelldateien einlesen
+    file(GLOB TEST_SOURCES "tests/*.cpp")
+    
+    # Testprogramm erstellen
+    add_executable(unit_tests ${TEST_SOURCES})
+    
+    # Link mit Google Test und den Projektbibliotheken
+    target_link_libraries(unit_tests gtest gtest_main)
+    
+    # Link mit den zu testenden Quellcode-Dateien
+    # Wir erstellen eine Bibliothek aus den Projektquellen
+    add_library(xgsemu_lib STATIC ${SOURCES})
+    target_link_libraries(xgsemu_lib ${SDL_LIBRARIES} ${wxWidgets_LIBRARIES})
+    if(UNIX)
+        target_link_libraries(xgsemu_lib pthread)
+    endif()
+    target_link_libraries(unit_tests xgsemu_lib)
+    
+    # Include-Verzeichnisse hinzufügen
+    target_include_directories(unit_tests PRIVATE 
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${SDL_INCLUDE_DIRS}
+        ${wxWidgets_INCLUDE_DIRS}
+    )
+    
+    # Tests automatisch erkennen und registrieren
+    include(GoogleTest)
+    gtest_discover_tests(unit_tests)
+    
+    # Bequemes Test-Target
+    add_custom_target(test
+        COMMAND unit_tests
+        DEPENDS unit_tests
     )
 endif()
