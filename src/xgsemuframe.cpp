@@ -129,3 +129,31 @@ void XGSEmuFrame::OnReadMe(wxCommandEvent& WXUNUSED(event))
 
 	dlg.ShowModal();
 }
+
+void XGSEmuFrame::LoadHexFile(const wxString& path)
+{
+    // Überprüfen, ob die Datei existiert
+    if (!wxFileExists(path)) {
+        wxMessageBox(wxString::Format(_("Error: File '%s' does not exist."), path), 
+                    _("File Error"), wxOK | wxICON_ERROR);
+        return;
+    }
+    
+    // Überprüfen, ob es sich um eine .hex oder .obj Datei handelt
+    wxFileName fileName(path);
+    wxString extension = fileName.GetExt().Lower();
+    
+    if (extension != wxT("hex") && extension != wxT("obj")) {
+        wxMessageBox(wxString::Format(_("Error: File '%s' is not a .hex or .obj file."), path), 
+                    _("Invalid File Type"), wxOK | wxICON_ERROR);
+        return;
+    }
+    
+    // Laden der Datei
+    panel->load(path.mb_str());
+    
+    // Optional: Aktuelles Verzeichnis in der Konfiguration speichern
+    wxConfig *config = new wxConfig(wxT("XGSEmu"));
+    config->Write(wxT("LoadDirectory"), fileName.GetPath());
+    delete config;
+}

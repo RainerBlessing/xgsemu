@@ -36,6 +36,7 @@ public:
 	void OnReset( wxCommandEvent& event );
 	void OnAbout( wxCommandEvent& event );
 	void OnReadMe( wxCommandEvent& event );
+	void LoadHexFile(const wxString& path);
 
 private:
 	DECLARE_EVENT_TABLE()

@@ -16,7 +16,7 @@ enum {
     IDB_KBD_FIRE
 };
 
-#define XGSE_VERSION "0.06"
+#define XGSE_VERSION "0.07"
 
 #ifndef _XGSEMU_H_
 #define _XGSEMU_H_
@@ -32,6 +32,9 @@ XGSEmuapp : public wxApp
 {
 public:
 	virtual bool OnInit();
+    wxString GetHexFilePath() const { return m_hexFilePath; }
+private:
+    wxString m_hexFilePath; 
 };
 
 #endif // _XGSEMU_H_
