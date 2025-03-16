@@ -25,7 +25,11 @@ cd build
 2. Run CMake to configure the project:
 
 ```bash
+# Standard Debug build (default)
 cmake ..
+
+# Or for Release (optimized) build
+cmake -DCMAKE_BUILD_TYPE=Release ..
 ```
 
 3. Build the project:
@@ -41,6 +45,39 @@ make
 ```
 
 4. The executable will be created in the build directory.
+
+### Additional Build Options
+
+#### Clean Build
+
+To clean the build directory:
+
+```bash
+make clean
+```
+
+For a complete cleanup, you can remove the build directory:
+
+```bash
+rm -rf build
+```
+
+#### Creating Distribution Archives
+
+If you have Git installed, you can create distribution archives:
+
+```bash
+# Create a ZIP archive from the main branch
+make git-archive
+
+# Create a ZIP archive with version information
+make git-archive-tagged
+
+# Create a source tarball (.tar.gz)
+make dist-tarball
+```
+
+The archives will be created in the build directory.
 
 ## Running the Emulator
 
