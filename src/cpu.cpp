@@ -78,7 +78,8 @@ void Cpu::execute ()
 	register USHORT a;
 	int i = 0;
 
-	while (i++ < 1000000)
+	//while (i++ < 1000000)
+	while (i++ < 1)
 	{
 		mne = ROM[pc];
 

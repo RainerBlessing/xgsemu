@@ -34,139 +34,157 @@ inline void SDLPanel::onEraseBackground(wxEraseEvent &)
 
 IMPLEMENT_CLASS(SDLPanel, wxPanel)
 
+// Timer-ID definieren
+const int ID_TIMER = 1001;
+
 BEGIN_EVENT_TABLE(SDLPanel, wxPanel)
 EVT_PAINT(SDLPanel::onPaint)
 EVT_ERASE_BACKGROUND(SDLPanel::onEraseBackground)
-EVT_IDLE(SDLPanel::onIdle)
+EVT_TIMER(ID_TIMER, SDLPanel::onTimer)
 EVT_KEY_DOWN(SDLPanel::onKeyDown)
 EVT_KEY_UP(SDLPanel::onKeyUp)
 END_EVENT_TABLE()
 
 SDLPanel::SDLPanel(wxWindow *parent) : wxPanel(parent, ID_PANEL), screen(NULL)
 {
+    // ensure the size of the wxPanel
+    wxSize size(560, 520);
 
-	// ensure the size of the wxPanel
-	wxSize size(560, 520);
-
-	SetMinSize(size);
-	SetMaxSize(size);
-	cpu = 0;
-	video = new Video();
-	screen = video->getScreen();
-	SetFocus();
+    SetMinSize(size);
+    SetMaxSize(size);
+    cpu = 0;
+    video = new Video();
+    screen = video->getScreen();
+    SetFocus();
+    
+    // Timer erstellen und starten (16ms ≈ 60fps)
+    timer = new wxTimer(this, ID_TIMER);
+    timer->Start(16);
 }
 
 SDLPanel::~SDLPanel()
 {
-	delete video;
-	delete cpu;
+    // Timer stoppen und löschen
+    if (timer) {
+        timer->Stop();
+        delete timer;
+    }
+    
+    delete video;
+    delete cpu;
 }
 
 void SDLPanel::onPaint(wxPaintEvent &)
 {
-	// can't draw if the screen doesn't exist yet
-	if (screen == NULL)
-	{
-		return ;
-	}
+    // can't draw if the screen doesn't exist yet
+    if (screen == NULL)
+    {
+        return ;
+    }
 
-	// lock the surface if necessary
-	if (SDL_MUSTLOCK(screen))
-	{
-		if (SDL_LockSurface(screen) < 0)
-		{
-			return ;
-		}
-	}
+    // lock the surface if necessary
+    if (SDL_MUSTLOCK(screen))
+    {
+        if (SDL_LockSurface(screen) < 0)
+        {
+            return ;
+        }
+    }
 
-	// create a bitmap from our pixel data
-	wxBitmap bmp(wxImage(screen->w, screen->h,
-	                     static_cast<unsigned char *>(screen->pixels), true));
+    // create a bitmap from our pixel data
+    wxBitmap bmp(wxImage(screen->w, screen->h,
+                         static_cast<unsigned char *>(screen->pixels), true));
 
-	// unlock the screen
-	if (SDL_MUSTLOCK(screen))
-	{
-		SDL_UnlockSurface(screen);
-	}
+    // unlock the screen
+    if (SDL_MUSTLOCK(screen))
+    {
+        SDL_UnlockSurface(screen);
+    }
 
-	// paint the screen
-	wxBufferedPaintDC dc(this, bmp);
+    // paint the screen
+    wxBufferedPaintDC dc(this, bmp);
 }
 
-void SDLPanel::onIdle(wxIdleEvent &)
+void SDLPanel::onTimer(wxTimerEvent &)
 {
-	// refresh the panel
-	Refresh(false);
-	if (cpu != 0)cpu->execute();
+    // CPU-Ausführung mit einer festen Anzahl von Instruktionen pro Frame
+    if (cpu != 0) {
+        // 80 MHz (80 Millionen Instruktionen pro Sekunde) bei 60fps
+        int instructionsPerFrame = 1333333;
+        for (int i = 0; i < instructionsPerFrame; i++) {
+            cpu->execute();
+        }
+    }
+    
+    // Bildschirm aktualisieren
+    Refresh(false);
 }
 
 void SDLPanel::onKeyDown(wxKeyEvent &event)
 {
-	switch (event.m_keyCode)
-	{
-			case WXK_CONTROL:
-			*joystickr |= 0x10;
-			break;
-			case WXK_UP:
-			*joystickr |= 0x1;
-			break;
-			case WXK_RIGHT:
-			*joystickr |= 0x8;
-			break;
-			case WXK_DOWN:
-			*joystickr |= 0x2;
-			break;
-			case WXK_LEFT:
-			*joystickr |= 0x4;
-			break;
-			default:
-			// allow other handlers to process KEY_DOWN events
-			event.Skip();
-			break;
-	}
-
+    switch (event.m_keyCode)
+    {
+            case WXK_CONTROL:
+            *joystickr |= 0x10;
+            break;
+            case WXK_UP:
+            *joystickr |= 0x1;
+            break;
+            case WXK_RIGHT:
+            *joystickr |= 0x8;
+            break;
+            case WXK_DOWN:
+            *joystickr |= 0x2;
+            break;
+            case WXK_LEFT:
+            *joystickr |= 0x4;
+            break;
+            default:
+            // allow other handlers to process KEY_DOWN events
+            event.Skip();
+            break;
+    }
 }
 
 void SDLPanel::onKeyUp(wxKeyEvent &event)
 {
-	switch (event.m_keyCode)
-	{
-			case WXK_CONTROL:
-			*joystickr &= ~0x10;
-			break;
-			case WXK_UP:
-			*joystickr &= ~ 0x1;
-			break;
-			case WXK_RIGHT:
-			*joystickr &= ~0x8;
-			break;
-			case WXK_DOWN:
-			*joystickr &= ~0x2;
-			break;
-			case WXK_LEFT:
-			*joystickr &= ~0x4;
-			break;
-			default:
-			// allow other handlers to process KEY_DOWN events
-			event.Skip();
-			break;
-	}
-
+    switch (event.m_keyCode)
+    {
+            case WXK_CONTROL:
+            *joystickr &= ~0x10;
+            break;
+            case WXK_UP:
+            *joystickr &= ~ 0x1;
+            break;
+            case WXK_RIGHT:
+            *joystickr &= ~0x8;
+            break;
+            case WXK_DOWN:
+            *joystickr &= ~0x2;
+            break;
+            case WXK_LEFT:
+            *joystickr &= ~0x4;
+            break;
+            default:
+            // allow other handlers to process KEY_DOWN events
+            event.Skip();
+            break;
+    }
 }
 
 void SDLPanel::load(const char* path)
 {
-	if (video != 0)delete video;
-	video = new Video();
-	screen = video->getScreen();
-	if (cpu != 0)delete cpu;
-	cpu = new Cpu(video);
-	joystickr = cpu->getJoystrickr();	
-	FileHandler fh;
-	fh.readFile (path, cpu->getROM());
+    if (video != 0)delete video;
+    video = new Video();
+    screen = video->getScreen();
+    if (cpu != 0)delete cpu;
+    cpu = new Cpu(video);
+    joystickr = cpu->getJoystrickr();    
+    FileHandler fh;
+    fh.readFile (path, cpu->getROM());
 }
 
 void SDLPanel::reset()
 {
-	if (cpu != 0)cpu->reset();
+    if (cpu != 0)cpu->reset();
 }
