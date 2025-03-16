@@ -19,15 +19,18 @@
 #define FUSE_LOC 		0x1010
 #define FUSEX_LOC 		0x1011
 
-
 #define ARRAY_SIZE 		(SX_MAX_ROM_SIZE + SX_ID_SIZE + 2 + 256)
-typedef struct
+
+// Define basic types before including other files
+typedef unsigned short u16;
+typedef unsigned char u8;
+typedef unsigned int u32;
+
+typedef struct sx_struct
 {
 	u16 device;
-	u16 rom[ ARRAY_SIZE ];
-}
-sx_t;
-
+	u16 rom[ARRAY_SIZE];
+} sx_t;
 
 #endif
 
