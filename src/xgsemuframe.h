@@ -34,6 +34,7 @@ public:
 	void OnQuit( wxCommandEvent& event );
 	void OnLoad( wxCommandEvent& event );
 	void OnReset( wxCommandEvent& event );
+	void OnFullscreen( wxCommandEvent& event );
 	void OnAbout( wxCommandEvent& event );
 	void OnReadMe( wxCommandEvent& event );
 	void LoadHexFile(const wxString& path);
@@ -42,6 +43,10 @@ private:
 	DECLARE_EVENT_TABLE()
 	SDLPanel *panel;
 	wxString appDir;
+	void OnFullScreen(wxCommandEvent &event) { ToggleFullScreen(); }
+	void ToggleFullScreen();
+	bool isFullScreen;
+	void OnKeyDown(wxKeyEvent &event);
 };
 
 enum
@@ -49,6 +54,7 @@ enum
     Menu_File_Quit = 100,
     Menu_File_Load,
     Menu_File_Reset,
+	Menu_View_Fullscreen,
     Menu_Help_About,
     Menu_Help_ReadMe,
 };

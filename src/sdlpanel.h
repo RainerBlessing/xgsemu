@@ -1,6 +1,7 @@
 #ifndef SDLPANEL_H
 #define SDLPANEL_H
 
+#include "xgsemuframe.h"
 #include <wx/wx.h>
 #include <SDL.h>
 
@@ -16,7 +17,7 @@ class SDLPanel : public wxPanel
     DECLARE_EVENT_TABLE()
 
 public:
-    SDLPanel(wxWindow *parent);
+    SDLPanel(XGSEmuFrame *parent);
     ~SDLPanel();
 
     void load(const char* path);
@@ -43,6 +44,7 @@ private:
     // Joystick-Register
     Uint16 *joystickr;
 
+    XGSEmuFrame *parentFrame;
     enum
     {
         ID_PANEL = 1000

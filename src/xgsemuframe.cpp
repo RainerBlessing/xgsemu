@@ -31,13 +31,15 @@ BEGIN_EVENT_TABLE( XGSEmuFrame, wxFrame )
 EVT_MENU( Menu_File_Quit, XGSEmuFrame::OnQuit )
 EVT_MENU( Menu_File_Load, XGSEmuFrame::OnLoad )
 EVT_MENU( Menu_File_Reset, XGSEmuFrame::OnReset )
+EVT_MENU( Menu_View_Fullscreen, XGSEmuFrame::OnFullScreen )
 EVT_MENU( Menu_Help_About, XGSEmuFrame::OnAbout )
 EVT_MENU( Menu_Help_ReadMe, XGSEmuFrame::OnReadMe )
+EVT_KEY_DOWN(XGSEmuFrame::OnKeyDown)
 END_EVENT_TABLE()
 
 
 XGSEmuFrame::XGSEmuFrame(const wxString& appDir, const wxString& title, const wxPoint& pos, const wxSize& size, long style )
-: wxFrame((wxFrame *)NULL, -1, title, pos, size, style)
+: wxFrame((wxFrame *)NULL, -1, title, pos, size, style),isFullScreen(false)
 {
 	this->appDir = appDir;
 	wxMenu *menuFile = new wxMenu;
@@ -46,6 +48,9 @@ XGSEmuFrame::XGSEmuFrame(const wxString& appDir, const wxString& title, const wx
 	menuFile->Append( Menu_File_Reset, wxT( "&Reset" ) );
 	menuFile->AppendSeparator();
 	menuFile->Append( Menu_File_Quit, wxT( "E&xit" ) );
+	
+	wxMenu *menuView = new wxMenu;
+	menuView->Append( Menu_View_Fullscreen, wxT( "Fullscreen\tF11" ) );
 
 	wxMenu *menuHelp = new wxMenu;
 	menuHelp->Append( Menu_Help_ReadMe, wxT( "View &Readme..." ) );
@@ -53,13 +58,19 @@ XGSEmuFrame::XGSEmuFrame(const wxString& appDir, const wxString& title, const wx
 
 	wxMenuBar *menuBar = new wxMenuBar;
 	menuBar->Append( menuFile, wxT( "&File" ) );
+	menuBar->Append( menuView, wxT( "&View" ) );
 	menuBar->Append( menuHelp, wxT( "&Help" ) );
-
 
 	SetMenuBar( menuBar );
 
 	//fCreateStatusBar();
 	panel = new SDLPanel(this);
+
+	wxBoxSizer *sizer = new wxBoxSizer(wxVERTICAL);
+	sizer->Add(panel, 1, wxEXPAND | wxALL, 10);
+	SetSizer(sizer);
+
+
 }
 
 void
@@ -157,3 +168,24 @@ void XGSEmuFrame::LoadHexFile(const wxString& path)
     config->Write(wxT("LoadDirectory"), fileName.GetPath());
     delete config;
 }
+
+  void XGSEmuFrame::ToggleFullScreen() {
+    isFullScreen = !isFullScreen;
+    ShowFullScreen(isFullScreen, wxFULLSCREEN_ALL);
+  }
+
+ void XGSEmuFrame::OnKeyDown(wxKeyEvent &event) {
+    // F11-Taste für Vollbild
+    if (event.GetKeyCode() == WXK_F11) {
+      ToggleFullScreen();
+      return;
+    }
+    // ESC-Taste zum Beenden des Vollbildmodus
+    else if (event.GetKeyCode() == WXK_ESCAPE && isFullScreen) {
+      ShowFullScreen(false);
+      isFullScreen = false;
+      return;
+    }
+
+    event.Skip();
+  }

@@ -28,6 +28,7 @@
 #include "Video.h"
 #include "cpu.h"
 #include "filehandler.h"
+#include "xgsemuframe.h"
 
 inline void SDLPanel::onEraseBackground(wxEraseEvent &)
 {}
@@ -45,17 +46,20 @@ EVT_KEY_DOWN(SDLPanel::onKeyDown)
 EVT_KEY_UP(SDLPanel::onKeyUp)
 END_EVENT_TABLE()
 
-SDLPanel::SDLPanel(wxWindow *parent) : wxPanel(parent, ID_PANEL), screen(NULL)
+SDLPanel::SDLPanel(XGSEmuFrame *parent) : wxPanel(parent, ID_PANEL), screen(NULL)
 {
     // ensure the size of the wxPanel
-    wxSize size(560, 520);
+    //wxSize size(560, 520);
 
-    SetMinSize(size);
-    SetMaxSize(size);
+    //SetMinSize(size);
+    //SetMaxSize(size);
     cpu = 0;
     video = new Video();
     screen = video->getScreen();
+    parentFrame = parent;
     SetFocus();
+    SetBackgroundStyle(wxBG_STYLE_PAINT);
+    
     
     // Timer erstellen und starten (16ms ≈ 60fps)
     timer = new wxTimer(this, ID_TIMER);
@@ -90,6 +94,7 @@ void SDLPanel::onPaint(wxPaintEvent &)
             return ;
         }
     }
+    wxSize currentSize = GetClientSize();
 
     // create a bitmap from our pixel data
     wxBitmap bmp(wxImage(screen->w, screen->h,
@@ -103,6 +108,15 @@ void SDLPanel::onPaint(wxPaintEvent &)
 
     // paint the screen
     wxBufferedPaintDC dc(this, bmp);
+
+   if(parentFrame->IsFullScreen()){
+        dc.SetTextForeground(wxColour(200, 200, 200, 180));
+      dc.SetFont(wxFont(10, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL,
+                        wxFONTWEIGHT_NORMAL));
+      wxString hint = wxT("F11 = Vollbild beenden");
+      wxSize textSize = dc.GetTextExtent(hint);
+      dc.DrawText(hint, 10, 10);
+    } 
 }
 
 void SDLPanel::onTimer(wxTimerEvent &)
