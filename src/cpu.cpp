@@ -101,7 +101,7 @@ void Cpu::execute ()
 			pc = ((*status & 0xe0) << 4) | (mne & 0x1ff);
 			cycle += 3;
 			return;
-		case 0xc0:    			//mov w,lit 1100 kkkk kkkk
+		case 0xc:    			//mov w,lit 1100 kkkk kkkk
 			//printf("Executing MOV W,#lit - Setting W to %d\n", mne & 0xff);
 			*w = mne & 0xff;
 			cycle++;
