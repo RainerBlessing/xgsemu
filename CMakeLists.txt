@@ -14,9 +14,10 @@ endif()
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release)
 
 # Compiler flags basierend auf Build-Typ
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive -Wno-write-strings")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive -Wno-write-strings ${WX_CFLAGS}")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0 -DDEBUG")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
+#set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${WX_LIBS}")
 
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "C++ Flags: ${CMAKE_CXX_FLAGS}")
@@ -133,52 +134,63 @@ endif()
 option(BUILD_TESTS "Build the unit tests" ON)
 
 if(BUILD_TESTS)
-    # Google Test Framework einbinden
-    include(FetchContent)
-    FetchContent_Declare(
-        googletest
-        GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG release-1.12.1
-    )
-    # For Windows: Prevent overriding the parent project's compiler/linker settings
-    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(googletest)
-    
-    # Test-Verzeichnis erstellen, falls es nicht existiert
-    file(MAKE_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tests)
-    
-    # Alle Test-Quelldateien einlesen
+    # Sammle alle Testquellen ein
     file(GLOB TEST_SOURCES "tests/*.cpp")
-    
-    # Testprogramm erstellen
-    add_executable(unit_tests ${TEST_SOURCES})
-    
-    # Link mit Google Test und den Projektbibliotheken
-    target_link_libraries(unit_tests gtest gtest_main)
-    
-    # Link mit den zu testenden Quellcode-Dateien
-    # Wir erstellen eine Bibliothek aus den Projektquellen
-    add_library(xgsemu_lib STATIC ${SOURCES})
-    target_link_libraries(xgsemu_lib ${SDL_LIBRARIES} ${wxWidgets_LIBRARIES})
-    if(UNIX)
-        target_link_libraries(xgsemu_lib pthread)
+
+    # Prüfe, ob wir tatsächlich etwas gefunden haben
+    if(TEST_SOURCES)
+        # GoogleTest via FetchContent laden, wie gehabt
+        include(FetchContent)
+        FetchContent_Declare(
+            googletest
+            GIT_REPOSITORY https://github.com/google/googletest.git
+            GIT_TAG release-1.12.1
+        )
+        set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+        FetchContent_MakeAvailable(googletest)
+
+        # Bibliothek aus deinem Projekt
+        add_library(xgsemu_lib STATIC ${SOURCES})
+        target_link_libraries(xgsemu_lib ${SDL_LIBRARIES} ${wxWidgets_LIBRARIES})
+        if(UNIX)
+          target_link_libraries(xgsemu_lib pthread)
+        endif()
+
+        # Test-Executable erstellen
+        add_executable(unit_tests ${TEST_SOURCES})
+        target_link_libraries(unit_tests gtest gtest_main xgsemu_lib)
+
+        # Include‐Pfad anpassen
+        target_include_directories(unit_tests PRIVATE 
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+            ${SDL_INCLUDE_DIRS}
+            ${wxWidgets_INCLUDE_DIRS}
+        )
+
+        # GTest-Integration
+        include(GoogleTest)
+        gtest_discover_tests(unit_tests)
+
+        # Optional bequemes Test-Target
+        add_custom_target(test
+            COMMAND unit_tests
+            DEPENDS unit_tests
+        )
+    else()
+        message(WARNING "BUILD_TESTS ist eingeschaltet, aber es existieren keine Test‐Dateien in tests/*.cpp.")
     endif()
-    target_link_libraries(unit_tests xgsemu_lib)
-    
-    # Include-Verzeichnisse hinzufügen
-    target_include_directories(unit_tests PRIVATE 
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${SDL_INCLUDE_DIRS}
-        ${wxWidgets_INCLUDE_DIRS}
+endif()
+
+# Find clang-format
+find_program(CLANG_FORMAT_EXECUTABLE NAMES clang-format)
+
+if(CLANG_FORMAT_EXECUTABLE)
+    file(GLOB_RECURSE ALL_SOURCE_FILES ${CMAKE_SOURCE_DIR}/src/*.cpp ${CMAKE_SOURCE_DIR}/src/*.h)
+
+    add_custom_target(format
+        COMMAND ${CLANG_FORMAT_EXECUTABLE} -i ${ALL_SOURCE_FILES}
+        COMMENT "Formatting source files with clang-format"
     )
-    
-    # Tests automatisch erkennen und registrieren
-    include(GoogleTest)
-    gtest_discover_tests(unit_tests)
-    
-    # Bequemes Test-Target
-    add_custom_target(test
-        COMMAND unit_tests
-        DEPENDS unit_tests
-    )
+else()
+    message(WARNING "clang-format not found. Code formatting will not be available.")
 endif()
