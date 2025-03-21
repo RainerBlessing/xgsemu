@@ -8,9 +8,9 @@ pkgs.mkShell {
     gnumake
     pkg-config
 
-    # SDL 1.2 (wie im Projekt benötigt)
-    SDL
-    SDL_image
+    # SDL2 1.2 (wie im Projekt benötigt)
+    SDL2
+    SDL2_image
     
     # wxWidgets (direkt referenziert)
     wxGTK32
@@ -46,7 +46,7 @@ pkgs.mkShell {
     echo "XGS Emulator Entwicklungsumgebung (C++11)"
     echo "========================================"
     echo "Verfügbare Bibliotheken:"
-    echo "- SDL $(${pkgs.SDL.dev}/bin/sdl-config --version)"
+    echo "- SDL2 $(${pkgs.SDL2.dev}/bin/sdl-config --version)"
     echo "- wxWidgets $(${pkgs.wxGTK32}/bin/wx-config --version 2>/dev/null || echo 'nicht gefunden')"
     echo ""
     echo "Zum Bauen des Projekts:"
@@ -59,8 +59,8 @@ pkgs.mkShell {
 
   # Setze LD_LIBRARY_PATH für die Entwicklung, aber nicht PATH
   LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
-    pkgs.SDL
-    pkgs.SDL_image
+    pkgs.SDL2
+    pkgs.SDL2_image
     pkgs.wxGTK32
     pkgs.gtk3
     pkgs.gsettings-desktop-schemas

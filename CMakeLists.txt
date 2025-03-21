@@ -25,18 +25,18 @@ message(STATUS "C++ Debug Flags: ${CMAKE_CXX_FLAGS_DEBUG}")
 message(STATUS "C++ Release Flags: ${CMAKE_CXX_FLAGS_RELEASE}")
 
 # Find required packages
-find_package(SDL REQUIRED)
+find_package(SDL2 REQUIRED)
 find_package(wxWidgets REQUIRED COMPONENTS core base html)
 
 # Debug-Ausgaben
-message(STATUS "SDL Include dirs: ${SDL_INCLUDE_DIRS}")
-message(STATUS "SDL Libraries: ${SDL_LIBRARIES}")
+message(STATUS "SDL2 Include dirs: ${SDL2_INCLUDE_DIRS}")
+message(STATUS "SDL2 Libraries: ${SDL2_LIBRARIES}")
 message(STATUS "wxWidgets Include dirs: ${wxWidgets_INCLUDE_DIRS}")
 message(STATUS "wxWidgets Libraries: ${wxWidgets_LIBRARIES}")
 message(STATUS "Build directory: ${CMAKE_BINARY_DIR}")
 
 # Include directories
-include_directories(${SDL_INCLUDE_DIRS})
+include_directories(${SDL2_INCLUDE_DIRS})
 include_directories(${wxWidgets_INCLUDE_DIRS})
 
 # Add wxWidgets definitions and flags
@@ -56,7 +56,7 @@ file(GLOB HEADERS
 add_executable(xgsemu ${SOURCES} ${HEADERS})
 
 # Link with libraries
-target_link_libraries(xgsemu ${SDL_LIBRARIES} ${wxWidgets_LIBRARIES})
+target_link_libraries(xgsemu ${SDL2_LIBRARIES} ${wxWidgets_LIBRARIES})
 
 # On Unix-like systems (Linux, macOS), we may need to link with additional libraries
 if(UNIX)
@@ -151,7 +151,7 @@ if(BUILD_TESTS)
 
         # Bibliothek aus deinem Projekt
         add_library(xgsemu_lib STATIC ${SOURCES})
-        target_link_libraries(xgsemu_lib ${SDL_LIBRARIES} ${wxWidgets_LIBRARIES})
+        target_link_libraries(xgsemu_lib ${SDL2_LIBRARIES} ${wxWidgets_LIBRARIES})
         if(UNIX)
           target_link_libraries(xgsemu_lib pthread)
         endif()
@@ -163,7 +163,7 @@ if(BUILD_TESTS)
         # Include‐Pfad anpassen
         target_include_directories(unit_tests PRIVATE 
             ${CMAKE_CURRENT_SOURCE_DIR}/src
-            ${SDL_INCLUDE_DIRS}
+            ${SDL2_INCLUDE_DIRS}
             ${wxWidgets_INCLUDE_DIRS}
         )
 

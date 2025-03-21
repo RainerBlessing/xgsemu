@@ -4,12 +4,6 @@
 
 Video::Video()
 {
-	if ( SDL_Init(SDL_INIT_VIDEO) < 0 )
-	{
-		fprintf(stderr, "Could not initialize SDL: %s\n",
-		        SDL_GetError());
-	}
-
 	Uint32 rmask, gmask, bmask, amask;
 
 	#if SDL_BYTEORDER == SDL_BIG_ENDIAN
@@ -24,7 +18,12 @@ Video::Video()
 	amask = 0xff000000;
 	#endif
 	//screen = SDL_CreateRGBSurface(SDL_SWSURFACE,526, 520, 32, rmask, gmask, bmask, 0);
-	screen = SDL_CreateRGBSurface(SDL_SWSURFACE, 560, 525, 24, 0xff0000, 0xff00, 0xff, 0);
+screen = SDL_CreateRGBSurface(0, 560, 525, 32, 
+                           0x00FF0000,   // R
+                           0x0000FF00,   // G
+                           0x000000FF,   // B
+                           0xFF000000);  // A
+	
 	if ( !screen)
 	{
 		fprintf(stderr, "Couldn't create a surface: %s\n",
@@ -83,7 +82,6 @@ Video::Video()
 Video::~Video()
 {
 	SDL_FreeSurface(screen);
-	SDL_Quit();
 }
 
 
@@ -110,7 +108,7 @@ void Video::changeVideo(int cycle, unsigned char colour)
 			if (frame == 100)frame = 0;else
 			frame++;
 			//SDL_BlitSurface(bscreen, NULL, screen, NULL);
-			SDL_UpdateRect(screen, 0, 0, 0, 0);
+			//SDL_UpdateRect(screen, 0, 0, 0, 0);
 		}
 
 		else if ((fragmentcounter > 0 && cycle - slfragments[fragmentcounter - 1].cycles > 360) || //376
