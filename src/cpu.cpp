@@ -40,6 +40,7 @@ Cpu::Cpu (Video* video)
 	reset();
 	this->video = video;
 	sound = NULL;
+	joystickr = 0;
 }
 
 void Cpu::setSound(Bu8763* sound)
@@ -51,6 +52,9 @@ void Cpu::setSound(Bu8763* sound)
 void Cpu::reset()
 {
 	memset (RAM, 0, 262);
+	memset (Tris, 0, sizeof(Tris));
+	mode = 0;
+	option = 0;
 	memset (SRAM, 0, 131072*sizeof(unsigned char));
 	cycle = 0;
 	cycle2 = 0;
@@ -82,6 +86,12 @@ unsigned char *
 Cpu::getRAM ()
 {
 	return RAM;
+}
+
+unsigned char *
+Cpu::getSRAM ()
+{
+	return SRAM;
 }
 
 USHORT *

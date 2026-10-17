@@ -43,6 +43,11 @@ public:
 	 */
 	unsigned char* getRAM();
 	/**
+	 * Returns a pointer to the external SRAM (128 KB). It is used in tests.
+	 * @return
+	 */
+	unsigned char* getSRAM();
+	/**
 	 * Returns a pointer to the program register. It is used in the debugger.
 	 * The program counter is not in RAM because it is a 12 bit register. Or 
 	 * at least used that way.

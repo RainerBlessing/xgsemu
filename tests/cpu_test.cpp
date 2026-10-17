@@ -458,3 +458,57 @@ TEST_F(CpuTest, ClrSetsTheZeroFlag) {
 
     EXPECT_EQ(1 << 2, cpu->getRAM()[3] & (1 << 2));
 }
+
+// The external SRAM is addressed through port C and D: bit 4 of RC clocks one
+// bit (bit 5) into a 12 bit page register, bit 6 is the chip enable.
+class CpuSramTest : public CpuTest {
+protected:
+    void run(USHORT opcode) {
+        *cpu->getPC() = 0x100;
+        setRomValue(0x100, opcode);
+        cpu->execute();
+    }
+
+    void configureAllPortsAsOutputs() {
+        cpu->getRAM()[261] = 0;
+        run(0x05f);   // mode #0xf
+        run(0x007);   // mov !rc,w
+    }
+
+    void clockPageBit(int bit) {
+        unsigned char* rc = &cpu->getRAM()[7];
+        *rc = (*rc & ~0x20) | (bit << 5);
+        run(0x587);   // setb RC.4
+        run(0x487);   // clrb RC.4
+    }
+};
+
+// Characterisation: only the low 12 bits of the page take part in the address.
+// (Address bit 16, RA7, is lost because the address is a 16 bit variable.)
+TEST_F(CpuSramTest, OnlyTheLast12ClockedBitsFormThePage) {
+    configureAllPortsAsOutputs();
+    unsigned char* ram = cpu->getRAM();
+    ram[7] = 1 << 6;          // chip disabled
+    for (int i = 0; i < 20; i++) {
+        clockPageBit(1);      // more than 12 bits: the oldest ones fall out
+    }
+    ram[8] = 0x5a;            // RD, the data
+    ram[7] = (ram[7] & ~0x0f) | 0x03;
+    ram[7] &= ~(1 << 7);      // write
+    run(0x4c7);               // clrb RC.6: chip enable, writes the SRAM
+
+    EXPECT_EQ(0x5a, cpu->getSRAM()[(0xfff << 4) | 0x3]);
+}
+
+TEST_F(CpuTest, ResetClearsTheModeRegister) {
+    unsigned char* ram = cpu->getRAM();
+    *cpu->getPC() = 0;
+    setRomValue(0, 0x055);    // mode #5
+    cpu->execute();
+    cpu->reset();
+    *cpu->getPC() = 0;
+    ram[261] = 0xaa;
+    setRomValue(0, 0x042);    // mov w,m
+    cpu->execute();
+    EXPECT_EQ(0, ram[261]);
+}
