@@ -23,6 +23,7 @@
 #include "cpu.h"
 #include "Bu8763.h"
 #include "filehandler.h"
+#include <string.h>
 #include <fstream>
 #include <iostream>
 #include <algorithm>
@@ -429,6 +430,14 @@ void XGSEmu::loadHexFile(const std::string& path) {
         return;
     }
     
+    // Read the file first: if it cannot be read the running program stays as it is
+    u16 rom[4096];
+    printf("Lade ROM-Datei: %s\n", path.c_str());
+    if (!FileHandler::readFile(path.c_str(), rom)) {
+        printf("Fehler beim Lesen der ROM-Datei!\n");
+        return;
+    }
+
     // Clean up existing components
     if (texture != NULL) {
         SDL_DestroyTexture(texture);
@@ -471,13 +480,7 @@ void XGSEmu::loadHexFile(const std::string& path) {
         sound->reset();
         cpu->setSound(sound);
         
-        FileHandler fh;
-        printf("Lade ROM-Datei: %s\n", path.c_str());
-        if (!fh.readFile(path.c_str(), cpu->getROM())) {
-            printf("Fehler beim Lesen der ROM-Datei!\n");
-            return;
-        }
-        
+        memcpy(cpu->getROM(), rom, sizeof(rom));
         printf("ROM-Datei erfolgreich geladen.\n");
         
         // Create new texture from the emulator display - NACH dem ROM-Laden
