@@ -143,6 +143,7 @@ private:
 	static Instruction lookupInstruction(USHORT mne);
 	void updateSound();
 	void updateTimer();
+	void registerWritten(USHORT fr);
 
 	// operands, flags and the like
 	USHORT registerAddress(USHORT mne) const;

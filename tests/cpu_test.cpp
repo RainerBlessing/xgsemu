@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <vector>
 #include "../src/cpu.h"
 #include "../src/Video.h"
 
@@ -814,4 +815,141 @@ TEST_F(CpuPortBitTest, SetbOnAnOutputPinWithAHigherBitNumberStillCounts) {
     cpu->getRAM()[9] = 0x00;
     run(0x500 | (6 << 5) | 9);   // setb RE.6, an output
     EXPECT_EQ(1, videoMock->calls);
+}
+
+// The real time clock/counter (RTCC, register 1) and its prescaler, as in the SX52
+// data sheet (section 4.3 and 9): the OPTION register is 0xFF after a reset, which
+// gives the prescaler to the watchdog, so the RTCC counts every cycle. With PSA = 0
+// the prescaler divides by 2 << PS. Writing the RTCC clears the prescaler.
+class CpuTimerTest : public CpuTest {
+protected:
+    enum {
+        NOP = 0x000,
+        CLR_RTCC = 0x061,       // clr 1
+        MOV_RTCC_W = 0x021,     // mov 1,w
+        MOV_OPTION_W = 0x002    // mov !option,w
+    };
+
+    // loads the program at address 0 and clears the rest
+    void program(const std::vector<USHORT>& words) {
+        for (int i = 0; i < 64; i++) {
+            setRomValue(i, i < (int)words.size() ? words[i] : NOP);
+        }
+        *cpu->getPC() = 0;
+    }
+
+    // mov w,#option; mov !option,w
+    std::vector<USHORT> setOption(int option) {
+        std::vector<USHORT> words;
+        words.push_back(0xc00 | option);
+        words.push_back(MOV_OPTION_W);
+        return words;
+    }
+
+    void run(int instructions) {
+        for (int i = 0; i < instructions; i++) {
+            cpu->execute();
+        }
+    }
+
+    int rtcc() {
+        return cpu->getRAM()[1];
+    }
+};
+
+// 0xFF has RTS set: after a reset the RTCC counts edges on its pin, not instruction
+// cycles. A program has to write the OPTION register first.
+TEST_F(CpuTimerTest, AfterAResetTheRtccDoesNotCountInstructionCycles) {
+    program({});
+    run(100);
+    EXPECT_EQ(0, rtcc());
+}
+
+TEST_F(CpuTimerTest, AResetPutsTheOptionRegisterBackToAllOnes) {
+    program(setOption(0xcf));      // counts every cycle
+    run(30);
+    ASSERT_GT(rtcc(), 0);
+    cpu->reset();
+    program({});
+    run(100);
+    EXPECT_EQ(0, rtcc());
+}
+
+TEST_F(CpuTimerTest, ThePrescalerDividesByTheRatioOfTheOptionRegister) {
+    std::vector<USHORT> words = setOption(0xc3);   // PSA = 0, PS = 3: 1:16
+    words.push_back(CLR_RTCC);
+    program(words);
+    run(3 + 15);
+    EXPECT_EQ(0, rtcc());
+    run(1);
+    EXPECT_EQ(1, rtcc());
+}
+
+TEST_F(CpuTimerTest, ThePrescalerKeepsWhatIsLeftOverWhenItCounts) {
+    // a jump takes 3 cycles, 16 is no multiple of it
+    std::vector<USHORT> words = setOption(0xc3);
+    words.push_back(CLR_RTCC);
+    words.push_back(0xa00 | 3);                    // jmp 3
+    program(words);
+    run(3 + 17);                                    // 1 + 16 * 3 = 49 cycles are counted
+    EXPECT_EQ(3, rtcc());
+}
+
+TEST_F(CpuTimerTest, WithTheMaximumRatioTheRtccCountsEvery256Cycles) {
+    std::vector<USHORT> words = setOption(0xc7);   // 1:256
+    words.push_back(CLR_RTCC);
+    program(words);
+    run(3 + 255);
+    EXPECT_EQ(0, rtcc());
+    run(1);
+    EXPECT_EQ(1, rtcc());
+}
+
+TEST_F(CpuTimerTest, WhenThePrescalerBelongsToTheWatchdogTheRtccCountsEveryCycle) {
+    std::vector<USHORT> words = setOption(0xcf);   // PSA = 1
+    words.push_back(CLR_RTCC);
+    program(words);
+    run(3 + 10);
+    EXPECT_EQ(10, rtcc());
+}
+
+TEST_F(CpuTimerTest, WritingTheRtccClearsThePrescaler) {
+    std::vector<USHORT> words = setOption(0xc3);
+    words.push_back(CLR_RTCC);
+    for (int i = 0; i < 10; i++) {
+        words.push_back(NOP);
+    }
+    words.push_back(0x040);                         // clr w
+    words.push_back(MOV_RTCC_W);                    // writes 0, the prescaler counted 11 cycles
+    program(words);
+    run(3 + 10 + 1 + 1);
+    run(15);
+    EXPECT_EQ(0, rtcc());
+    run(1);
+    EXPECT_EQ(1, rtcc());
+}
+
+TEST_F(CpuTimerTest, TheClearInstructionsOfTheOtherRegisterWritesAlsoClearThePrescaler) {
+    // inc RTCC is a write as well
+    std::vector<USHORT> words = setOption(0xc3);
+    words.push_back(CLR_RTCC);
+    for (int i = 0; i < 10; i++) {
+        words.push_back(NOP);
+    }
+    words.push_back(0x2a0 | 1);                     // inc 1
+    program(words);
+    run(3 + 10 + 1);
+    EXPECT_EQ(1, rtcc());
+    run(15);
+    EXPECT_EQ(1, rtcc());
+    run(1);
+    EXPECT_EQ(2, rtcc());
+}
+
+TEST_F(CpuTimerTest, AnExternalClockSourceNeverCounts) {
+    std::vector<USHORT> words = setOption(0xe3);   // RTS = 1: counts on the RTCC pin
+    words.push_back(CLR_RTCC);
+    program(words);
+    run(3 + 500);
+    EXPECT_EQ(0, rtcc());
 }

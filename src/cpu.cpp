@@ -59,7 +59,7 @@ void Cpu::reset()
 	joystickClockHigh = false;
 	joystickBit = 0;
 	mode = 0;
-	option = 0;
+	option = 0xff; // all bits 1: the prescaler belongs to the watchdog
 	memset (SRAM, 0, 131072*sizeof(unsigned char));
 	cycle = 0;
 	cycle2 = 0;
@@ -130,13 +130,28 @@ void Cpu::updateSound()
 	}
 }
 
-// The timer register (RTCC) counts every 2 << PS cycles.
+// The real time clock/counter (RTCC, register 1) counts the instruction cycles. The
+// prescaler in front of it divides by 2 << PS (OPTION bits 2..0), unless it belongs
+// to the watchdog (PSA, bit 3): then the RTCC counts every cycle. With RTS (bit 5)
+// it would count the edges on the RTCC pin, which nothing drives here.
 void Cpu::updateTimer()
 {
-	prescaler += (int)(cycle - cycle2);
-	if (prescaler > (2 << (option&0x7)))
+	if (option & 0x20)
 	{
-		RAM[1]++;
+		prescaler = 0;
+		return;
+	}
+	prescaler += (int)(cycle - cycle2);
+	int ratio = (option & 0x08) ? 1 : (2 << (option & 0x7));
+	RAM[1] += prescaler / ratio;
+	prescaler %= ratio;
+}
+
+// Writing the RTCC clears the prescaler, if it belongs to the RTCC.
+void Cpu::registerWritten(USHORT fr)
+{
+	if (fr == 1 && (option & 0x08) == 0)
+	{
 		prescaler = 0;
 	}
 }
@@ -336,7 +351,9 @@ void Cpu::setb(USHORT mne)
 	USHORT bit = (mne >> 5) & 7;
 	if (portBitWritten(mne & 0x1f, bit, true))
 		return;
-	RAM[registerAddress(mne)] |= 1 << bit;
+	USHORT fr = registerAddress(mne);
+	RAM[fr] |= 1 << bit;
+	registerWritten(fr);
 	next();
 }
 
@@ -345,7 +362,9 @@ void Cpu::clrb(USHORT mne)
 	USHORT bit = (mne >> 5) & 7;
 	if (portBitWritten(mne & 0x1f, bit, false))
 		return;
-	RAM[registerAddress(mne)] &= (~(1 << bit));
+	USHORT fr = registerAddress(mne);
+	RAM[fr] &= (~(1 << bit));
+	registerWritten(fr);
 	next();
 }
 
@@ -400,6 +419,7 @@ void Cpu::setW(unsigned char value)
 void Cpu::setRegister(USHORT fr, unsigned char value)
 {
 	RAM[fr] = value;
+	registerWritten(fr);
 	setZero(value == 0);
 	next();
 }
@@ -408,6 +428,7 @@ void Cpu::movFrW(USHORT mne)
 {
 	USHORT fr = registerAddress(mne);
 	RAM[fr] = *w;
+	registerWritten(fr);
 	next();
 	portWritten(fr, *w);
 }
@@ -416,6 +437,7 @@ void Cpu::clrFr(USHORT mne)
 {
 	USHORT fr = registerAddress(mne);
 	RAM[fr] = 0;
+	registerWritten(fr);
 	portWritten(fr, 0);
 	setZero(true);
 	next();
@@ -425,6 +447,7 @@ void Cpu::decFr(USHORT mne)
 {
 	USHORT fr = registerAddress(mne);
 	RAM[fr] -= 1;
+	registerWritten(fr);
 	setZero(RAM[fr] == 0);
 	portWritten(fr, RAM[fr]);
 	next();
@@ -434,6 +457,7 @@ void Cpu::incFr(USHORT mne)
 {
 	USHORT fr = registerAddress(mne);
 	RAM[fr]++;
+	registerWritten(fr);
 	setZero(RAM[fr] == 0);
 	portWritten(fr, RAM[fr]);
 	next();
@@ -443,6 +467,7 @@ void Cpu::decsz(USHORT mne)
 {
 	USHORT fr = registerAddress(mne);
 	RAM[fr] -= 1;
+	registerWritten(fr);
 	skipIfZero(RAM[fr]);
 }
 
@@ -450,6 +475,7 @@ void Cpu::incsz(USHORT mne)
 {
 	USHORT fr = registerAddress(mne);
 	RAM[fr]++;
+	registerWritten(fr);
 	skipIfZero(RAM[fr]);
 }
 
@@ -546,6 +572,7 @@ void Cpu::swapFr(USHORT mne)
 {
 	USHORT fr = registerAddress(mne);
 	RAM[fr] = (RAM[fr] >> 4) | ((RAM[fr] & 0xf) << 4);
+	registerWritten(fr);
 	next();
 }
 
@@ -569,7 +596,10 @@ void Cpu::addFrW(USHORT mne)
 	setCarry((fr != 2 ? sum : ((pc + 1) & 0xff) + *w) > 0xff);
 
 	if (fr != 2)
+	{
 		RAM[fr] = sum & 0xff;
+		registerWritten(fr);
+	}
 	else
 		pc = sum;
 
@@ -614,6 +644,7 @@ void Cpu::rlFr(USHORT mne)
 	USHORT fr = registerAddress(mne);
 	bool carryOut = RAM[fr] >> 7 == 1;
 	RAM[fr] = (RAM[fr] << 1) | (*status & 1);
+	registerWritten(fr);
 	setCarry(carryOut);
 	next();
 }
@@ -623,6 +654,7 @@ void Cpu::rrFr(USHORT mne)
 	USHORT fr = registerAddress(mne);
 	bool carryOut = (RAM[fr] & 1) == 1;
 	RAM[fr] = (RAM[fr] >> 1) | ((*status & 1) << 7);
+	registerWritten(fr);
 	setCarry(carryOut);
 	next();
 }
