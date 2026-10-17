@@ -6,6 +6,8 @@ the program itself, SRAM, a joystick port and a ROHM BU8763 sound chip. It runs
 the compiled demos and games of the XGS ME (`.hex` and `.obj` files). The window
 is drawn with SDL2.
 
+[Try it in the browser](https://rainerblessing.github.io/xgsemu/)
+
 ## Status
 
 Implemented:
