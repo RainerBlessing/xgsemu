@@ -228,8 +228,9 @@ The registers have names: `rtcc`, `pc`, `status`, `fsr` and `ra` to `re`. `w`, `
 once. A name wins over a number spelled the same, so do not call a label `a` or
 `ff`.
 
-The assembler does not select the page for you: a `jmp` or `call` reaches only the
-current page, switch with `page n` first. Errors are reported as
+The assembler does not select the page for you: a `jmp` reaches only the current
+page of 512 words and a `call` only its first 256 words, switch with `page n`
+first. Errors are reported as
 `game.asm: line 7: unknown name loopp`. ID and fuses of the hex file stay
 unprogrammed.
 
