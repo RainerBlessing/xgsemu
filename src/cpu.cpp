@@ -622,22 +622,21 @@ void Cpu::rrFr(USHORT mne)
 	next();
 }
 
-// Known fault, kept for now: the carry is inverted and the zero flag is not
-// touched.
 void Cpu::movWRlFr(USHORT mne)
 {
-	USHORT a = (RAM[registerAddress(mne)] << 1) | (*status & 1);
-	setCarry((a > 0xff) == 0);
-	*w = a & 0xff;
+	USHORT fr = registerAddress(mne);
+	bool carryOut = RAM[fr] >> 7 == 1;
+	*w = (RAM[fr] << 1) | (*status & 1);
+	setCarry(carryOut);
 	next();
 }
 
-// Known fault, kept for now: the carry is never set.
 void Cpu::movWRrFr(USHORT mne)
 {
-	USHORT a = (RAM[registerAddress(mne)] >> 1) | (*status & 1) << 7;
-	setCarry(a > 0xff);
-	*w = a & 0xff;
+	USHORT fr = registerAddress(mne);
+	bool carryOut = (RAM[fr] & 1) == 1;
+	*w = (RAM[fr] >> 1) | ((*status & 1) << 7);
+	setCarry(carryOut);
 	next();
 }
 
