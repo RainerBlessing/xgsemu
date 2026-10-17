@@ -334,7 +334,9 @@ void Cpu::execute ()
 						a = RAM[fr] + *w;
 					else
 						a = pc + *w;
-					if (a > 0xff)
+					// jmp PC+W: only the low byte of the program counter takes part
+					// in the addition, so the carry is normally cleared.
+					if ((fr != 2 ? a : ((pc + 1) & 0xff) + *w) > 0xff)
 						*status |= 1;	//set carry
 					else
 					{

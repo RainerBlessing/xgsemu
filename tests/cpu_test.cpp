@@ -220,3 +220,31 @@ TEST_F(CpuTest, VideoObjectUsed) {
     // EXPECT_EQ(videoMock->lastValue, 0x42);
 }
 
+
+// "jmp PC+W" is "add PC,W" and clears the carry flag when the addition stays
+// inside the low byte of the program counter. Rem-Pac relies on that before
+// it shifts sprite bits with rr/rl.
+TEST_F(CpuTest, JumpPcPlusWClearsCarryAboveFirstPage) {
+    USHORT* pc = cpu->getPC();
+    unsigned char* ram = cpu->getRAM();
+    *pc = 0xa00;
+    ram[261] = 0x03;         // W
+    ram[3] |= 1;             // carry set
+    setRomValue(0xa00, 0x1e2);   // add PC,W (jmp PC+W)
+
+    cpu->execute();
+
+    EXPECT_EQ(0, ram[3] & 1);
+}
+
+TEST_F(CpuTest, JumpPcPlusWJumpsBehindTheNextInstruction) {
+    USHORT* pc = cpu->getPC();
+    unsigned char* ram = cpu->getRAM();
+    *pc = 0xa00;
+    ram[261] = 0x03;
+    setRomValue(0xa00, 0x1e2);
+
+    cpu->execute();
+
+    EXPECT_EQ(0xa04, *pc);
+}
