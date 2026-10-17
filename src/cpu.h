@@ -134,14 +134,36 @@ private:
 	Bu8763* sound;
 	unsigned char lastRa; // RA as the sound chip has seen it
 	Uint16 joystickr;
-	inline USHORT getRegisterIndex(USHORT fr);
-	inline void updateZeroFlag(USHORT value);
-	void setBit(USHORT fr, USHORT bit, bool setValue);
-	void skipInstructions();
-	void movFrW(USHORT fr);
-	void movWFr(USHORT fr) ;
-	void incDecFr(USHORT fr, bool increment);
-	void logicOperation(USHORT fr, USHORT operation, bool wToFr);
+	typedef void (Cpu::*Instruction)(USHORT mne);
+	static Instruction lookupInstruction(USHORT mne);
+	void updateSound();
+	void updateTimer();
+
+	// operands, flags and the like
+	USHORT registerAddress(USHORT mne) const;
+	void setZero(bool zero);
+	void setCarry(bool carry);
+	void setDigitCarry(bool digitCarry);
+	void next(int cycles = 1);
+	void skipFollowing();
+	void pushReturnAddress(USHORT address);
+	USHORT popReturnAddress();
+	void portWritten(USHORT fr, unsigned char value);
+	bool portBitWritten(USHORT fr, USHORT bit, bool set);
+
+	// the instructions
+	void jmp(USHORT mne);
+	void call(USHORT mne);
+	void retw(USHORT mne);
+	void movWLiteral(USHORT mne);
+	void andWLiteral(USHORT mne);
+	void orWLiteral(USHORT mne);
+	void xorWLiteral(USHORT mne);
+	void setb(USHORT mne);
+	void clrb(USHORT mne);
+	void snb(USHORT mne);
+	void sb(USHORT mne);
+	void registerInstruction(USHORT mne);
 };
 #endif
 
