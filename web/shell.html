@@ -15,6 +15,8 @@
   button { cursor:pointer; }
   #stage { background:#000; border-radius:6px; line-height:0; }
   canvas { width:100%; height:auto; aspect-ratio:4/3; display:block; image-rendering:auto; outline:none; }
+  #stage:fullscreen { display:flex; align-items:center; justify-content:center; width:100vw; height:100vh; border-radius:0; }
+  #stage:fullscreen canvas { width:min(100vw, calc(100vh * 4 / 3)); height:auto; }
   p.hint { color:var(--muted); font-size:.9rem; }
   .help { margin-top:8px; }
   .help h2 { font-size:1.05rem; margin:0 0 6px; }
