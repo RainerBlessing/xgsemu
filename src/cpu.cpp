@@ -40,6 +40,7 @@ Cpu::Cpu (Video* video)
 	reset();
 	this->video = video;
 	sound = NULL;
+	fastLoops = true;
 	joystickr = 0;
 	carryInput = false;
 }
@@ -472,9 +473,54 @@ void Cpu::incFr(USHORT mne)
 	next();
 }
 
+// A wait loop is "djnz counter, self": decsz, an optional page instruction and a
+// jmp back to the decsz. The video timing of the programs is made of them. All
+// rounds but the last one change nothing except the counter, the zero flag, the page
+// bits and the cycle counter, so they are done here at once and the last round is left
+// to the normal execution. The result is exactly the same as stepping through them.
+void Cpu::skipWaitLoopRounds(USHORT fr)
+{
+	// INDF, RTCC, PCL, STATUS, FSR and the ports are not just memory
+	if (fr < 0x0a)
+		return;
+
+	USHORT j = (pc + 1) & 0xfff;
+	USHORT page = (*status >> 5) & 7;
+	bool pageInstruction = ROM[j] >> 3 == 2;
+	if (pageInstruction)
+	{
+		page = ROM[j] & 7;
+		j = (j + 1) & 0xfff;
+	}
+	bool jumpsBack = ROM[j] >> 9 == 5 && (((page << 9) | (ROM[j] & 0x1ff)) == pc);
+	if (!jumpsBack)
+		return;
+
+	// the counter runs until it is 1, a counter of 0 counts 256 rounds
+	int rounds = RAM[fr] == 0 ? 255 : RAM[fr] - 1;
+	if (rounds == 0)
+		return;
+
+	RAM[fr] = 1;
+	cycle += rounds * (pageInstruction ? 5 : 4); // decsz 1, page 1, jmp 3
+	// The timer is brought up to date at the start of every instruction. Do it for the
+	// rounds as well, so that the RTCC is as current as if they had run one by one.
+	updateTimer();
+	cycle2 = cycle;
+	if (pageInstruction)
+	{
+		*status = (page << 5) | (*status & 0x1f);
+	}
+	setZero(false); // decsz has seen a counter that is not zero
+}
+
 void Cpu::decsz(USHORT mne)
 {
 	USHORT fr = registerAddress(mne);
+	if (fastLoops)
+	{
+		skipWaitLoopRounds(fr);
+	}
 	RAM[fr] -= 1;
 	registerWritten(fr);
 	skipIfZero(RAM[fr]);

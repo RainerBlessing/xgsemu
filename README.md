@@ -42,8 +42,8 @@ window and sound, for four of the example programs:
 
 | Build | Speed compared to the real XGS ME |
 |---|---|
-| Release (`-DCMAKE_BUILD_TYPE=Release`) | 3.7 to 5.3 times faster |
-| Debug (the default of the CMake file) | only 1.2 to 1.6 times faster |
+| Release (`-DCMAKE_BUILD_TYPE=Release`) | 4.3 to 6.6 times faster |
+| Debug (the default of the CMake file) | only 1.2 to 2.0 times faster |
 
 So:
 

@@ -83,6 +83,15 @@ public:
 	 */
 	void runCycles(unsigned int count);
 	/**
+	 * Wait loops (djnz on a register, jumping to itself) are done in one step.
+	 * Nothing changes but the number of instructions that have to be executed,
+	 * switch it off to execute every round on its own (used by the tests).
+	 */
+	void setFastLoops(bool enabled)
+	{
+		fastLoops = enabled;
+	};
+	/**
 	 * Number of clock cycles executed so far.
 	 */
 	int getCycle() const
@@ -137,6 +146,7 @@ private:
 	unsigned int cycle2;
 	unsigned int overshoot; // cycles the last runCycles() went beyond its target
 	int prescaler; // prescaler for the timer
+	bool fastLoops;
 	Video* video;
 	Bu8763* sound;
 	unsigned char lastRa; // RA as the sound chip has seen it
@@ -162,6 +172,7 @@ private:
 	int subtract(unsigned char minuend, unsigned char subtrahend);
 	void next(int cycles = 1);
 	void skipFollowing();
+	void skipWaitLoopRounds(USHORT fr);
 	void pushReturnAddress(USHORT address);
 	USHORT popReturnAddress();
 	void portWritten(USHORT fr, unsigned char value);
