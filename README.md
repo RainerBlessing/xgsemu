@@ -218,7 +218,7 @@ table:  dw 123, start       ; raw 12 bit words
 
 | Line | Meaning |
 |---|---|
-| `name:` | A label, alone or in front of an instruction. `jmp` uses its low 9 bits, `call` the low 8 bits. |
+| `name:` | A label, alone or in front of an instruction. `jmp` uses its low 9 bits, `call` its low 8 bits; a `call` to a label in the second half of a page is an error. |
 | `org addr` | Continue at this address. The ROM has 4096 words, unused ones get `0xFFF`. |
 | `name equ value` | A name for a number (register, literal), usable everywhere a number is, also before the definition. |
 | `dw value, ...` | Raw 12 bit words. Values can be numbers, names or labels (a label keeps its full address). |

@@ -49,8 +49,19 @@ TEST_F(AssembleSourceTest, JumpToALabelBeforeIt) {
 }
 
 TEST_F(AssembleSourceTest, CallUsesTheLowEightBits) {
-    ASSERT_TRUE(assembleText("org 142\nsub1: ret\norg 0\ncall sub1\n")) << error;
+    ASSERT_TRUE(assembleText("org 242\nsub1: ret\norg 0\ncall sub1\n")) << error;
     EXPECT_EQ(0x900 | 0x42, rom[0]);
+}
+
+TEST_F(AssembleSourceTest, CallToTheSecondHalfOfAPageIsAnError) {
+    EXPECT_FALSE(assembleText("org 142\nsub1: ret\norg 0\ncall sub1\n"));
+    EXPECT_NE(std::string::npos, error.find("line 4")) << error;
+    EXPECT_NE(std::string::npos, error.find("sub1")) << error;
+}
+
+TEST_F(AssembleSourceTest, CallToTheLastWordOfTheFirstHalfWorks) {
+    ASSERT_TRUE(assembleText("org ff\nsub1: ret\norg 0\ncall sub1\n")) << error;
+    EXPECT_EQ(0x900 | 0xff, rom[0]);
 }
 
 TEST_F(AssembleSourceTest, JumpUsesTheLowNineBits) {
