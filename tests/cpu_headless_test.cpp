@@ -13,3 +13,9 @@ TEST(CpuHeadlessTest, WritingPortREWithoutVideoDoesNotCrash) {
     cpu.execute();
     EXPECT_EQ(1, cpu.getRAM()[9]);
 }
+
+TEST(CpuHeadlessTest, ModeIs1FAfterReset) {
+    Cpu cpu(NULL);
+    cpu.reset();
+    EXPECT_EQ(0x1f, *cpu.getMode());
+}
