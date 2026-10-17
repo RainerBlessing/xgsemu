@@ -463,6 +463,7 @@ void XGSEmu::loadHexFile(const std::string& path) {
     
     // Create new CPU and load file
     try {
+        video->reset(); // the new program counts cycles from 0
         cpu = new Cpu(video);
         joystickr = cpu->getJoystrickr();
         sound->reset();
@@ -496,6 +497,7 @@ void XGSEmu::loadHexFile(const std::string& path) {
 void XGSEmu::reset() {
     if (cpu != nullptr) {
         cpu->reset();
+        video->reset();
         sound->reset();
     }
 }

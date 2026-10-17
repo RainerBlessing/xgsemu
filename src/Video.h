@@ -29,6 +29,11 @@ public:
 	 */
 	void changeVideo(int cycle, unsigned char colour);
 	/**
+	 * Forgets the timing of the old signal. Call it when the cycle counter
+	 * starts again at 0, i.e. when a new program is loaded or the CPU is reset.
+	 */
+	void reset();
+	/**
 	 * Returns the pointer to the SDL surface
 	 * @return Screen pointer
 	 */
@@ -45,6 +50,17 @@ private:
 	 * The array with the line segments
 	 */
 	Fragment slfragments[FRAGMENTS];
+	/**
+	 * Where the signal currently is. The fragments of one video line are
+	 * collected in the ring buffer and drawn when their end is known.
+	 */
+	int fragmentcounter; // current index in the ring buffer
+	int yc;              // index of the fragment where the current line started
+	int frame;           // counts the vsyncs, only every second frame is drawn
+	bool vsync;          // a vsync has been seen
+	bool line;           // the colour burst of the current line has been seen
+	int x0, x, y;        // pixel position of the fragment that is drawn
+	Uint32 burst;        // colour of the colour burst, reference for the phase
 	/**
 	 * 28 (2*14) different colours
 	 */
