@@ -37,6 +37,24 @@
 #include <shlobj.h>
 #endif
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+
+// The browser calls this (see web/shell.html) to start a program that was put
+// into the virtual file system.
+static XGSEmu* webEmu = NULL;
+extern "C" EMSCRIPTEN_KEEPALIVE void xgsLoad(const char* path) {
+    if (webEmu != NULL) {
+        webEmu->loadHexFile(path);
+    }
+}
+extern "C" EMSCRIPTEN_KEEPALIVE void xgsReset() {
+    if (webEmu != NULL) {
+        webEmu->reset();
+    }
+}
+#endif
+
 // Helper function to get configuration directory
 std::string getConfigDir() {
     std::string configDir;
@@ -203,6 +221,15 @@ int XGSEmu::run(const std::string& hexFilePath) {
         loadHexFile(hexFilePath);
     }
     
+#ifdef __EMSCRIPTEN__
+    // The browser owns the main loop: it calls frame() for every animation frame.
+    webEmu = this;
+    lastFrameMs = emscripten_get_now();
+    EM_ASM({ if (Module.onEmulatorReady) Module.onEmulatorReady(); });
+    emscripten_set_main_loop_arg([](void* self) { static_cast<XGSEmu*>(self)->frame(); }, this, 0, 1);
+    return 0;
+#endif
+
     // Hauptschleife
     printf("Starte Hauptschleife...\n");
     // The frame time is not a whole number of milliseconds (16.67 ms), so the
@@ -254,6 +281,34 @@ int XGSEmu::run(const std::string& hexFilePath) {
     return 0;
 }
 
+#ifdef __EMSCRIPTEN__
+void XGSEmu::frame() {
+    // Animation frames come with the refresh rate of the display (60, 120, 144 Hz),
+    // the emulated machine runs at 60 frames per second whatever that is.
+    const double frameMs = 1000.0 / TARGET_FPS;
+    double now = emscripten_get_now();
+    frameDebtMs += now - lastFrameMs;
+    lastFrameMs = now;
+    if (frameDebtMs > frameMs * 5) {
+        frameDebtMs = frameMs * 5; // tab was in the background: do not catch up
+    }
+
+    handleEvents();
+    bool ran = false;
+    while (frameDebtMs >= frameMs) {
+        frameDebtMs -= frameMs;
+        if (cpu != nullptr) {
+            cpu->runCycles(CYCLES_PER_FRAME);
+            ran = true;
+        }
+    }
+    if (ran) {
+        updateTexture();
+    }
+    render();
+}
+#endif
+
 void XGSEmu::handleEvents() {
     SDL_Event event;
     
@@ -267,7 +322,9 @@ void XGSEmu::handleEvents() {
                 // Handle key presses - SDL2 version
                 switch (event.key.keysym.sym) {
                     case SDLK_ESCAPE:
+#ifndef __EMSCRIPTEN__
                         running = false;
+#endif
                         break;
                         
                     case SDLK_F11:

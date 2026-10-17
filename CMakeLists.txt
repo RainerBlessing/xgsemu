@@ -23,8 +23,15 @@ message(STATUS "C++ Flags: ${CMAKE_CXX_FLAGS}")
 message(STATUS "C++ Debug Flags: ${CMAKE_CXX_FLAGS_DEBUG}")
 message(STATUS "C++ Release Flags: ${CMAKE_CXX_FLAGS_RELEASE}")
 
-# Find required packages
-find_package(SDL2 REQUIRED)
+# Find required packages (Emscripten ships its own SDL2 port)
+if(EMSCRIPTEN)
+    set(SDL2_INCLUDE_DIRS "")
+    set(SDL2_LIBRARIES "")
+    add_compile_options(-sUSE_SDL=2)
+    add_link_options(-sUSE_SDL=2)
+else()
+    find_package(SDL2 REQUIRED)
+endif()
 
 # Debug-Ausgaben
 message(STATUS "SDL2 Include dirs: ${SDL2_INCLUDE_DIRS}")
@@ -74,6 +81,19 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
 endif()
 
 target_compile_definitions(xgsemu PRIVATE _THREAD_SAFE)
+
+# Browser version: xgsemu.html + .js + .wasm + .data (the examples), see build-web.sh
+if(EMSCRIPTEN)
+    set_target_properties(xgsemu PROPERTIES SUFFIX ".html"
+        LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html")
+    target_link_options(xgsemu PRIVATE
+        --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html
+        --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/examples@/examples
+        -sALLOW_MEMORY_GROWTH=1
+        -sEXPORTED_RUNTIME_METHODS=ccall,FS
+        -sEXPORTED_FUNCTIONS=_main,_xgsLoad,_xgsReset
+    )
+endif()
 
 # Install the executable
 install(TARGETS xgsemu DESTINATION bin)

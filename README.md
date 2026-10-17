@@ -96,6 +96,19 @@ cmake --build .
 
 4. The executable is `xgsemu` in the build directory.
 
+### Browser version (WebAssembly)
+
+Needs the [Emscripten SDK](https://emscripten.org). With it activated
+(`source emsdk_env.sh`):
+
+```bash
+./build-web.sh
+python3 -m http.server -d build-web   # then open http://localhost:8000
+```
+
+The examples are bundled into the page; other `.hex`/`.obj` files can be loaded
+with the file button. Cursor keys move, Ctrl fires.
+
 ### Tests
 
 The tests are built together with the emulator and run in well under a second:

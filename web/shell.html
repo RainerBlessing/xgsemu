@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XGameStation Emulator</title>
+<style>
+  :root { --bg:#fff; --fg:#1b1b1b; --muted:#666; --line:#ccc; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#16181c; --fg:#e8e8e8; --muted:#9aa0a6; --line:#3a3d42; } }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--fg); font:15px/1.4 system-ui,sans-serif; }
+  main { max-width:900px; margin:0 auto; }
+  h1 { font-size:1.3rem; margin:0 0 12px; }
+  .bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px; }
+  select, button { font:inherit; padding:6px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); }
+  button { cursor:pointer; }
+  #stage { background:#000; border-radius:6px; line-height:0; }
+  canvas { width:100%; height:auto; aspect-ratio:4/3; display:block; image-rendering:auto; outline:none; }
+  p.hint { color:var(--muted); font-size:.9rem; }
+  #status { color:var(--muted); font-size:.9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>XGameStation Emulator</h1>
+  <div class="bar">
+    <select id="examples" aria-label="Example program" disabled></select>
+    <button id="loadExample" disabled>Run</button>
+    <button id="loadFile" disabled>Load .hex / .obj…</button>
+    <button id="reset" disabled>Reset</button>
+    <button id="fs">Fullscreen</button>
+    <input id="file" type="file" accept=".hex,.obj" hidden>
+    <span id="status">Loading…</span>
+  </div>
+  <div id="stage"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas></div>
+  <p class="hint">Cursor keys: joystick · Ctrl: fire · Click the picture first so sound can start.</p>
+</main>
+<script>
+  var $ = function (id) { return document.getElementById(id); };
+  var statusEl = $('status');
+  var Module = {
+    canvas: $('canvas'),
+    print: function (t) { console.log(t); },
+    printErr: function (t) { console.warn(t); },
+    setStatus: function (t) { statusEl.textContent = t; },
+    onEmulatorReady: function () {
+      var names = Module.FS.readdir('/examples').filter(function (n) { return /\.(hex|obj)$/i.test(n); }).sort();
+      var sel = $('examples');
+      names.forEach(function (n) { var o = document.createElement('option'); o.textContent = n; sel.appendChild(o); });
+      ['examples', 'loadExample', 'loadFile', 'reset'].forEach(function (id) { $(id).disabled = false; });
+      statusEl.textContent = '';
+      var def = names.indexOf('ms_pac_man.hex');
+      if (def >= 0) sel.selectedIndex = def;
+      runExample();
+    }
+  };
+  function startProgram(path) {
+    try { Module.ccall('xgsLoad', null, ['string'], [path]); } catch (e) { console.error('load', e, e.errno, e.stack); }
+    $('canvas').focus();
+  }
+  function runExample() { startProgram('/examples/' + $('examples').value); }
+  $('loadExample').onclick = runExample;
+  $('examples').onchange = runExample;
+  $('reset').onclick = function () { Module.ccall('xgsReset', null, [], []); $('canvas').focus(); };
+  $('fs').onclick = function () { $('stage').requestFullscreen && $('stage').requestFullscreen(); };
+  $('loadFile').onclick = function () { $('file').click(); };
+  $('file').onchange = function () {
+    var f = this.files[0]; if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var path = '/upload/' + f.name.replace(/[^\w.\-]/g, '_');
+      try { Module.FS.mkdir('/upload'); } catch (e) {}
+      Module.FS.writeFile(path, new Uint8Array(reader.result));
+      startProgram(path);
+    };
+    reader.readAsArrayBuffer(f);
+    this.value = '';
+  };
+  // keep the page from scrolling / the browser from reacting to the game keys
+  window.addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'SELECT') return;
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].indexOf(e.key) >= 0) e.preventDefault();
+  }, { capture: true });
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>
