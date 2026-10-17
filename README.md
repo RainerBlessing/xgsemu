@@ -186,6 +186,56 @@ macOS and in `%APPDATA%\XGSEmu` on Windows, and starts as the current directory)
 | Ctrl+L | Load a `.hex`/`.obj` file from the last used directory |
 | Esc | Quit |
 
+## Assembler and disassembler
+
+Two small command line tools are built next to the emulator (not in the browser
+version):
+
+```bash
+./sxasm game.asm game.hex       # assemble
+./sxdis game.hex                # list the programmed ROM words
+./xgsemu game.hex
+```
+
+`sxdis` prints `address: opcode  instruction` for every word that is not empty
+(`0xFFF`). It cannot tell code from data, so a table shows up as instructions.
+
+The source has one instruction per line, in the notation `sxdis` writes. Numbers
+are hexadecimal (`0x` is allowed), case and blanks do not matter and `;` starts a
+comment:
+
+```
+counter equ 10              ; a name for register 0x10
+        org 0
+start:  mov w, #5
+        mov counter, w
+loop:   decsz counter
+        jmp loop            ; a label instead of an address
+        setb status.2
+        jmp start
+table:  dw 123, start       ; raw 12 bit words
+```
+
+| Line | Meaning |
+|---|---|
+| `name:` | A label, alone or in front of an instruction. `jmp` uses its low 9 bits, `call` the low 8 bits. |
+| `org addr` | Continue at this address. The ROM has 4096 words, unused ones get `0xFFF`. |
+| `name equ value` | A name for a number (register, literal), usable everywhere a number is, also before the definition. |
+| `dw value, ...` | Raw 12 bit words. Values can be numbers, names or labels (a label keeps its full address). |
+
+The registers have names: `rtcc`, `pc`, `status`, `fsr` and `ra` to `re`. `w`, `m`,
+`option` and `wdt` are reserved, names are case sensitive and can only be defined
+once. A name wins over a number spelled the same, so do not call a label `a` or
+`ff`.
+
+The assembler does not select the page for you: a `jmp` or `call` reaches only the
+current page, switch with `page n` first. Errors are reported as
+`game.asm: line 7: unknown name loopp`. ID and fuses of the hex file stay
+unprogrammed.
+
+The same code is in [sxcpu](https://github.com/RainerBlessing/sxcpu) as
+`assemble()`, `assembleSource()` and `disassemble()`.
+
 ## License
 
 This program is free software; you can redistribute it and/or modify it under the
