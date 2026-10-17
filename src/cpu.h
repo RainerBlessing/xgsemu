@@ -19,8 +19,7 @@
 #define CPU
 #define USHORT unsigned short
 #include <string>
-#include "Video.h"
-#include "Bu8763.h"
+#include "cpu_ports.h"
 
 using std::string;
 
@@ -31,7 +30,7 @@ using std::string;
 class Cpu
 {
 public:
-	Cpu(Video* video);
+	Cpu(VideoPort* video);
 	/**
 	 * Returns a pointer to ROM. It is used in the debugger.
 	 * @return 
@@ -71,7 +70,7 @@ public:
 	               * The values are written to that "register"
 	 * @return 
 	 */
-	Uint16* getJoystrickr()
+	unsigned short* getJoystrickr()
 	{
 		return &joystickr;
 	};
@@ -108,7 +107,7 @@ public:
 	 * Connects the sound chip. Changes of port RA are forwarded to it.
 	 * @param sound The chip or NULL to disable the sound
 	 */
-	void setSound(Bu8763* sound);
+	void setSound(SoundPort* sound);
 private:
 	/**
 	 *  The SRAM emulation.
@@ -140,17 +139,16 @@ private:
 	unsigned char Tris[5]; // data direction of the ports RA..RE: 1 is an input
 	unsigned char portConfig[3][5]; // pull-ups (MODE 0xE), input levels (0xD), Schmitt triggers (0xC)
 	unsigned char RInput[5];
-	Uint32 t1;
 	// Unsigned, because the counter runs over after about 27 seconds at 80 MHz.
 	unsigned int cycle;
 	unsigned int cycle2;
 	unsigned int overshoot; // cycles the last runCycles() went beyond its target
 	int prescaler; // prescaler for the timer
 	bool fastLoops;
-	Video* video;
-	Bu8763* sound;
+	VideoPort* video;
+	SoundPort* sound;
 	unsigned char lastRa; // RA as the sound chip has seen it
-	Uint16 joystickr;
+	unsigned short joystickr;
 	// state of the serial joystick interface and of the SRAM address logic
 	bool carryInput; // CF of the FUSEX word is 0: ADD and SUB take the carry flag as input
 	bool joystickClockHigh;

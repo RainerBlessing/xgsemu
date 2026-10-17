@@ -1,6 +1,7 @@
 #ifndef BU8763_H_
 #define BU8763_H_
 #include <mutex>
+#include "cpu_ports.h"
 
 /**
  * Emulation of the ROHM BU8763 melody generator of the XGS ME.
@@ -15,7 +16,7 @@
  * Only the melody mode is emulated (no DTMF/tone generator). The wave form (sine or
  * square) is one setting for all three channels, the last mode register written counts.
  */
-class Bu8763
+class Bu8763 : public SoundPort
 {
 public:
 	static const int CHANNELS = 3;

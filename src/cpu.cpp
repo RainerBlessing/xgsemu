@@ -18,14 +18,11 @@
 #include <string.h>
 #include <sstream>
 #include <string>
-#include "SDL.h"
-#include "Video.h"
-//#include "Windows.h"
 
 using namespace std;
 #include "cpu.h"
 
-Cpu::Cpu (Video* video)
+Cpu::Cpu (VideoPort* video)
 {
 	rtcc = &RAM[1];
 	status = &RAM[3];
@@ -36,7 +33,6 @@ Cpu::Cpu (Video* video)
 	rd = &RAM[8];
 	re = &RAM[9];
 	w = &RAM[261];
-	t1 = SDL_GetTicks();
 	reset();
 	this->video = video;
 	sound = NULL;
@@ -50,7 +46,7 @@ void Cpu::setFusex(USHORT fusex)
 	carryInput = ((fusex >> 6) & 1) == 0;
 }
 
-void Cpu::setSound(Bu8763* sound)
+void Cpu::setSound(SoundPort* sound)
 {
 	this->sound = sound;
 	lastRa = *ra;

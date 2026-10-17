@@ -1,6 +1,7 @@
 #ifndef VIDEO_H_
 #define VIDEO_H_
 #include "SDL.h"
+#include "cpu_ports.h"
 #define USHORT unsigned short
 
 typedef struct
@@ -12,7 +13,7 @@ Fragment;
 /**
  * The class responsible for displaying something.
  */
-class Video
+class Video : public VideoPort
 {
 public:
 	Video();
