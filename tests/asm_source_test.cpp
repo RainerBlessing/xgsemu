@@ -97,3 +97,95 @@ TEST_F(AssembleSourceTest, LabelOnlyLineAndInstructionOnSameLine) {
     EXPECT_EQ(0xa00, rom[1]);
     EXPECT_EQ(0xa00, rom[2]);
 }
+
+TEST_F(AssembleSourceTest, EquDefinesARegisterName) {
+    ASSERT_TRUE(assembleText("counter equ 10\nmov counter, w\nmov w, counter\n")) << error;
+    EXPECT_EQ(0x020 | 0x10, rom[0]);
+    EXPECT_EQ(0x200 | 0x10, rom[1]);
+}
+
+TEST_F(AssembleSourceTest, EquDefinesALiteral) {
+    ASSERT_TRUE(assembleText("limit equ 2a\nmov w, #limit\n")) << error;
+    EXPECT_EQ(0xc2a, rom[0]);
+}
+
+TEST_F(AssembleSourceTest, EquDoesNotUseUpAnAddress) {
+    ASSERT_TRUE(assembleText("x equ 5\nnop\n")) << error;
+    EXPECT_EQ(0x000, rom[0]);
+    EXPECT_EQ(UNUSED, rom[1]);
+}
+
+TEST_F(AssembleSourceTest, EquCanUseAnEarlierName) {
+    ASSERT_TRUE(assembleText("a equ 8\nb equ a\nmov b, w\n")) << error;
+    EXPECT_EQ(0x028, rom[0]);
+}
+
+TEST_F(AssembleSourceTest, NameWorksWithABit) {
+    ASSERT_TRUE(assembleText("flags equ 12\nsetb flags.3\n")) << error;
+    EXPECT_EQ(0x500 | (3 << 5) | 0x12, rom[0]);
+}
+
+TEST_F(AssembleSourceTest, SxRegistersHaveNames) {
+    ASSERT_TRUE(assembleText("mov w, status\nsetb status.2\nmov w, rtcc\nmov fsr, w\nmov w, rb\n")) << error;
+    EXPECT_EQ(0x200 | 3, rom[0]);
+    EXPECT_EQ(0x500 | (2 << 5) | 3, rom[1]);
+    EXPECT_EQ(0x200 | 1, rom[2]);
+    EXPECT_EQ(0x020 | 4, rom[3]);
+    EXPECT_EQ(0x200 | 6, rom[4]);
+}
+
+TEST_F(AssembleSourceTest, PortControlKeepsItsName) {
+    ASSERT_TRUE(assembleText("mov !ra, w\n")) << error;
+    EXPECT_EQ(0x005, rom[0]);
+}
+
+TEST_F(AssembleSourceTest, RegisterNameCannotBeDefinedAgain) {
+    EXPECT_FALSE(assembleText("ra: nop\n"));
+    EXPECT_NE(std::string::npos, error.find("line 1")) << error;
+}
+
+TEST_F(AssembleSourceTest, DwStoresRawWords) {
+    ASSERT_TRUE(assembleText("dw 123, abc\ndw 0\n")) << error;
+    EXPECT_EQ(0x123, rom[0]);
+    EXPECT_EQ(0xabc, rom[1]);
+    EXPECT_EQ(0x000, rom[2]);
+}
+
+TEST_F(AssembleSourceTest, DwTakesLabelsAndNamesAndKeepsTheFullAddress) {
+    ASSERT_TRUE(assembleText("k equ 7\norg 5ff\ntable: dw k, table\n")) << error;
+    EXPECT_EQ(0x007, rom[0x5ff]);
+    EXPECT_EQ(0x5ff, rom[0x600]);
+}
+
+TEST_F(AssembleSourceTest, LabelBehindDwCountsEveryWord) {
+    ASSERT_TRUE(assembleText("dw 1, 2, 3\nend: jmp end\n")) << error;
+    EXPECT_EQ(0xa00 | 3, rom[3]);
+}
+
+TEST_F(AssembleSourceTest, DwValueTooBigIsAnError) {
+    EXPECT_FALSE(assembleText("dw 1000\n"));
+    EXPECT_NE(std::string::npos, error.find("line 1")) << error;
+}
+
+TEST_F(AssembleSourceTest, DwWithoutValueIsAnError) {
+    EXPECT_FALSE(assembleText("dw\n"));
+}
+
+TEST_F(AssembleSourceTest, EquTwiceIsAnError) {
+    EXPECT_FALSE(assembleText("x equ 1\nx equ 2\n"));
+    EXPECT_NE(std::string::npos, error.find("line 2")) << error;
+}
+
+TEST_F(AssembleSourceTest, EquWithUnknownNameIsAnError) {
+    EXPECT_FALSE(assembleText("x equ y\n"));
+}
+
+TEST_F(AssembleSourceTest, ReservedWordsCannotBeNames) {
+    EXPECT_FALSE(assembleText("w equ 5\n"));
+    EXPECT_FALSE(assembleText("m: nop\n"));
+}
+
+TEST_F(AssembleSourceTest, EquMayBeUsedBeforeItsDefinition) {
+    ASSERT_TRUE(assembleText("mov late, w\nlate equ 5\n")) << error;
+    EXPECT_EQ(0x025, rom[0]);
+}
