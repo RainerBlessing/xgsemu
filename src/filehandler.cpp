@@ -38,22 +38,29 @@ int str_case_compare(const char* s1, const char* s2) {
  */
 bool FileHandler::readFile(const char *fn, u16 * rom)
 {
-    sx_t sx;
     size_t fn_length = strlen(fn);
-
     if (fn_length < 3) {
         return false;
     }
 
-    const char* extension = fn + strlen(fn) - 3;
+    sx_t sx;
+    const char* extension = fn + fn_length - 3;
     if (str_case_compare("hex", extension) == 0)
     {
-        HexFile::readFile(fn, &sx);
+        if (!HexFile::readFile(fn, &sx)) {
+            return false;
+        }
     }
     else if (str_case_compare("obj", extension) == 0)
     {
         ObjFile of;
-        of.readFile(fn, &sx);
+        if (!of.readFile(fn, &sx)) {
+            return false;
+        }
+    }
+    else
+    {
+        return false;
     }
     memcpy(rom, sx.rom, 4096*2);
     return true;

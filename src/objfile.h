@@ -33,7 +33,7 @@ public:
 
 	~ObjFile();
 	bool readFile(const char *fn, sx_t * sx );
-	bool writeFile( char *fn, sx_t * sx );
+	bool writeFile(const char *fn, sx_t * sx );
 };
 
 #endif
