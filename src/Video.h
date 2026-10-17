@@ -70,6 +70,14 @@ private:
 	        */
 	Uint32 intensity[16];
 	SDL_Surface* screen;
+
+	void startFrame();
+	void startLine();
+	void measureFragment(int cycle, int previous);
+	int toScreenColumn(int position) const;
+	Uint32 fragmentPixel(unsigned short colour) const;
+	void fillRow(int row, int from, int to, Uint32 pixel);
+	void drawFragment(int cycle, int previous);
 };
 
 #endif /*VIDEO_H_*/

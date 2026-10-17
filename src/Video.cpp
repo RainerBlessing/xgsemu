@@ -96,6 +96,27 @@ int elapsed(int now, int before)
 {
 	return (int)((unsigned int)now - (unsigned int)before);
 }
+
+// The video signal, measured in clock cycles of the SX52.
+const int VSYNC_CYCLES = 4000;       // a longer sync pulse starts a new frame
+const int HSYNC_CYCLES = 360;        // a longer one starts a new line
+const int BURST_MIN_CYCLES = 40;     // the colour burst is shorter than 50 and longer than 40
+const int BURST_MAX_CYCLES = 50;
+
+// The visible part of a line in units of 8 cycles, and how it is stretched
+// to the width of the picture.
+const int FIRST_VISIBLE = 50;
+const int LAST_VISIBLE = 560;
+const double HORIZONTAL_SCALE = 1.1;
+
+// A picture line is drawn twice, the line counter stops here.
+const int LAST_LINE = 519;
+
+// A fragment with luminance 0 is a sync pulse.
+bool isSync(unsigned short colour)
+{
+	return (colour & 0xf) == 0;
+}
 }
 
 void Video::reset()
@@ -110,116 +131,128 @@ void Video::reset()
 	burst = 0;
 }
 
+// Called whenever the colour on the video port changes. The new colour is for
+// the fragment that starts now, what is processed is the fragment that ends
+// now: its colour was passed with the previous call.
 void Video::changeVideo(int cycle, unsigned char colour)
 {
-	unsigned char *ubuff8;
-	Uint32 *ubuff32;
 	// The fragments are a ring buffer, the one before index 0 is the last one.
 	const int previous = (fragmentcounter + FRAGMENTS - 1) % FRAGMENTS;
 	const int sincePrevious = elapsed(cycle, slfragments[previous].cycles);
 
 	slfragments[fragmentcounter].cycles = cycle;
-	if ((slfragments[fragmentcounter].colour &0xf) == 0)
+	if (isSync(slfragments[fragmentcounter].colour))
 	{
-
-		if (sincePrevious > 4000)
-		{
-			fragmentcounter = yc = 0;
-			y = 0;
-			vsync = true;
-			frame ^= 1; // only every second frame is drawn
-			//SDL_BlitSurface(bscreen, NULL, screen, NULL);
-			//SDL_UpdateRect(screen, 0, 0, 0, 0);
-		}
-
-		else if (sincePrevious > 360) //376
-		{
-			x = 0;
-			if(y<519){
-				y++;
-				y++;
-			}
-			yc = fragmentcounter;
-			line = false;
-		}
+		if (sincePrevious > VSYNC_CYCLES)
+			startFrame();
+		else if (sincePrevious > HSYNC_CYCLES)
+			startLine();
 	}
-	else
-		if (line == false && sincePrevious > 40 && sincePrevious < 50)
-		{
-			line = true;
-			burst = colour >> 4;
-		}
-		else if ( vsync == true && line == true && frame == 0)
-		{
-			if (fragmentcounter > 0)
-			{
-				x0 = elapsed(slfragments[previous].cycles, slfragments[yc].cycles) >> 3;
-				x = elapsed(cycle, slfragments[yc].cycles) >> 3;
-			}
-			else if ( yc != 0)
-			{
-				x0 = elapsed(slfragments[previous].cycles, slfragments[yc].cycles) >> 3;
-				x = elapsed(cycle, slfragments[yc].cycles) >> 3;
-			}
-
-			// A surface that needs locking and cannot be locked is skipped,
-			// but the signal bookkeeping below must go on.
-			bool locked = true;
-			if ( SDL_MUSTLOCK(screen) )
-			{
-				locked = SDL_LockSurface(screen) == 0;
-			}
-
-			if (locked)
-			{
-				if (x0 < 50)x0 = 50;
-				if (x < 50)x = 50;
-				if (x > 560)x = 560;
-				if (x0 > 560)x0 = 560;
-
-				x0 = (x0 - 50) * 1.1;
-				x = (x - 50) * 1.1;
-				// The scaling can lead past the last column (510 * 1.1 = 561)
-				if (x0 > screen->w)x0 = screen->w;
-				if (x > screen->w)x = screen->w;
-				//x0=(x0-100)*1.23;
-				//x=(x-100)*1.23;
-
-				Uint32 r, g, b, i;
-				Uint32 buff32 = colours[(((slfragments[fragmentcounter].colour >> 4) & 0xf) + burst) % 28];
-				i = intensity[slfragments[fragmentcounter].colour & 0xf];
-				ubuff8 = (unsigned char*)screen->pixels + y * screen->pitch;
-				if (slfragments[fragmentcounter].colour >> 4 != 15)
-				{
-					r = (Uint32)(((buff32 >> 16) & 0xff) * i) >> 8;
-					g = (Uint32)(((buff32 >> 8) & 0xff) * i) >> 8;
-					b = (Uint32)(((buff32) & 0xff) * i) >> 8;
-				}
-				else r = g = b = i;
-				r = SDL_MapRGB(screen->format, r, g, b);
-				int k;
-				for (k = x0;k < x;k++)
-				{
-					ubuff32 = (Uint32*)(ubuff8 + k * screen->format->BytesPerPixel);
-					*ubuff32 = r;
-				}
-				ubuff8 = (unsigned char*)screen->pixels + (y + 1) * screen->pitch;
-				for (k = x0;k < x;k++)
-				{
-					ubuff32 = (Uint32*)(ubuff8 + k * screen->format->BytesPerPixel);
-					*ubuff32 = r;
-				}
-
-				if ( SDL_MUSTLOCK(screen) )
-				{
-					SDL_UnlockSurface(screen);
-				}
-			}
-		}
+	else if (line == false && sincePrevious > BURST_MIN_CYCLES && sincePrevious < BURST_MAX_CYCLES)
+	{
+		line = true;
+		burst = colour >> 4;
+	}
+	else if (vsync == true && line == true && frame == 0)
+	{
+		drawFragment(cycle, previous);
+	}
 
 	fragmentcounter++;
 
 	if (fragmentcounter == FRAGMENTS)fragmentcounter = 0;
 	slfragments[fragmentcounter].colour = colour;
+}
 
+void Video::startFrame()
+{
+	fragmentcounter = yc = 0;
+	y = 0;
+	vsync = true;
+	frame ^= 1; // only every second frame is drawn
+}
+
+void Video::startLine()
+{
+	x = 0;
+	if (y < LAST_LINE)
+	{
+		y++;
+		y++;
+	}
+	yc = fragmentcounter;
+	line = false;
+}
+
+// x0 and x are the horizontal start and end of the fragment that ends now, in
+// units of 8 cycles from the start of the line.
+void Video::measureFragment(int cycle, int previous)
+{
+	if (fragmentcounter > 0 || yc != 0)
+	{
+		x0 = elapsed(slfragments[previous].cycles, slfragments[yc].cycles) >> 3;
+		x = elapsed(cycle, slfragments[yc].cycles) >> 3;
+	}
+}
+
+// The column of the picture for a position in units of 8 cycles.
+int Video::toScreenColumn(int position) const
+{
+	if (position < FIRST_VISIBLE) position = FIRST_VISIBLE;
+	if (position > LAST_VISIBLE) position = LAST_VISIBLE;
+	int column = (position - FIRST_VISIBLE) * HORIZONTAL_SCALE;
+	// The scaling can lead past the last column (510 * 1.1 = 561)
+	if (column > screen->w) column = screen->w;
+	return column;
+}
+
+// The colour of a fragment: the chroma is the phase against the colour burst,
+// the luminance the intensity. Chroma 15 is grey.
+Uint32 Video::fragmentPixel(unsigned short colour) const
+{
+	Uint32 r, g, b;
+	Uint32 base = colours[(((colour >> 4) & 0xf) + burst) % 28];
+	Uint32 i = intensity[colour & 0xf];
+	if (colour >> 4 != 15)
+	{
+		r = (Uint32)(((base >> 16) & 0xff) * i) >> 8;
+		g = (Uint32)(((base >> 8) & 0xff) * i) >> 8;
+		b = (Uint32)(((base) & 0xff) * i) >> 8;
+	}
+	else r = g = b = i;
+	return SDL_MapRGB(screen->format, r, g, b);
+}
+
+void Video::fillRow(int row, int from, int to, Uint32 pixel)
+{
+	unsigned char *start = (unsigned char*)screen->pixels + row * screen->pitch;
+	for (int k = from; k < to; k++)
+	{
+		*(Uint32*)(start + k * screen->format->BytesPerPixel) = pixel;
+	}
+}
+
+// Draws the fragment that ends now into the current line. A line is drawn
+// twice, the picture has twice the lines of the signal.
+void Video::drawFragment(int cycle, int previous)
+{
+	measureFragment(cycle, previous);
+
+	// A surface that needs locking and cannot be locked is skipped,
+	// but the signal bookkeeping must go on.
+	if (SDL_MUSTLOCK(screen) && SDL_LockSurface(screen) != 0)
+	{
+		return;
+	}
+
+	x0 = toScreenColumn(x0);
+	x = toScreenColumn(x);
+	Uint32 pixel = fragmentPixel(slfragments[fragmentcounter].colour);
+	fillRow(y, x0, x, pixel);
+	fillRow(y + 1, x0, x, pixel);
+
+	if (SDL_MUSTLOCK(screen))
+	{
+		SDL_UnlockSurface(screen);
+	}
 }
