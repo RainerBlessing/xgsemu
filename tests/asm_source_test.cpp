@@ -389,3 +389,34 @@ TEST_F(AssembleSourceTest, IndfIsRegisterZero) {
     EXPECT_EQ(0x2a0, rom[2]);
     EXPECT_EQ(0x660, rom[3]);
 }
+
+// the addresses of the labels
+
+TEST_F(AssembleSourceTest, LabelAddressesCanBeAskedFor) {
+    std::map<std::string, int> labels;
+    ASSERT_TRUE(assembleSource("start: nop\nloop: nop\njmp loop\norg 100\nlater: nop\nsize equ 5\n", rom, ROM_SIZE, &error, &labels)) << error;
+    EXPECT_EQ(0, labels.at("start"));
+    EXPECT_EQ(1, labels.at("loop"));
+    EXPECT_EQ(0x100, labels.at("later"));
+}
+
+TEST_F(AssembleSourceTest, NamesFromEquAreNoLabels) {
+    std::map<std::string, int> labels;
+    ASSERT_TRUE(assembleSource("size equ 5\nnop\n", rom, ROM_SIZE, &error, &labels)) << error;
+    EXPECT_EQ(0u, labels.count("size"));
+    EXPECT_EQ(0u, labels.count("rtcc"));
+}
+
+TEST_F(AssembleSourceTest, LabelAddressesIncludeTheInsertedPages) {
+    std::map<std::string, int> labels;
+    ASSERT_TRUE(assembleSource("autopage on\nstart: jmp far\nnext: nop\norg 200\nfar: nop\n", rom, ROM_SIZE, &error, &labels)) << error;
+    EXPECT_EQ(0, labels.at("start"));
+    EXPECT_EQ(2, labels.at("next"));        // after the page and the jump
+    EXPECT_EQ(0x200, labels.at("far"));
+}
+
+TEST_F(AssembleSourceTest, NoLabelsAreGivenOnAnError) {
+    std::map<std::string, int> labels;
+    EXPECT_FALSE(assembleSource("a: nop\nfrobnicate\n", rom, ROM_SIZE, &error, &labels));
+    EXPECT_TRUE(labels.empty());
+}
