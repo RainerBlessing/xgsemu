@@ -132,7 +132,7 @@ bool HexFile::readFile(const char *fn, sx_t * sx )
 				         address + i );
 				goto error;
 			}
-			if ( ( address + i ) > ( ARRAY_SIZE * 2 ) )
+			if ( ( address + i ) >= ( ARRAY_SIZE * 2 ) )
 			{
 				fprintf( stderr,
 				         "error reading hex file: address %04x out of boundsx\n",
@@ -180,7 +180,7 @@ void HexFile::writeByte( FILE * f, u8 byte, u8 * checksum )
 		*checksum += byte;
 }
 
-bool HexFile::writeFile( char *fn, sx_t * sx )
+bool HexFile::writeFile( const char *fn, sx_t * sx )
 {
 	FILE *f = NULL;
 	bool r = false;

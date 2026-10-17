@@ -21,7 +21,7 @@ class HexFile
 public:
 	HexFile() {}
 	static bool readFile(const char *fn, sx_t * sx);
-	static bool writeFile(char *fn, sx_t * sx);
+	static bool writeFile(const char *fn, sx_t * sx);
 private:
 	static void writeByte(FILE * f, u8 byte, u8 * checksum);
 	static int parse_hex_digit(char**);
