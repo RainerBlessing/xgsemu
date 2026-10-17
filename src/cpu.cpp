@@ -505,16 +505,9 @@ void Cpu::xorWFr(USHORT mne)
 	setW(*w ^ RAM[registerAddress(mne)]);
 }
 
-// Known fault, kept for now: a zero result replaces the whole status register
-// instead of setting the zero flag.
 void Cpu::orWFr(USHORT mne)
 {
-	*w |= RAM[registerAddress(mne)];
-	if (*w == 0)
-		*status = 1 << 2;
-	else
-		*status &= ~(1 << 2);
-	next();
+	setW(*w | RAM[registerAddress(mne)]);
 }
 
 void Cpu::movWFr(USHORT mne)
