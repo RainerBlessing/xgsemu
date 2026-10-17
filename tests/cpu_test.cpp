@@ -378,3 +378,35 @@ TEST_F(CpuCycleTest, InstructionFamiliesMatchTheInstructionSetTable) {
         EXPECT_EQ(c.cycles, cyclesOf(c.opcode));
     }
 }
+
+// The speed of the emulated program is given by the clock cycles, not by the
+// number of instructions: jmp and call take 3 cycles, iread 4.
+TEST_F(CpuCycleTest, RunCyclesStopsAfterTheRequestedCycles) {
+    // the ROM is filled with nops by reset, one cycle each
+    cpu->runCycles(1000);
+    EXPECT_EQ(1000, cpu->getCycle());
+}
+
+TEST_F(CpuCycleTest, RunCyclesCountsCyclesAndNotInstructions) {
+    // a loop of one jmp (3 cycles), 300 cycles are 100 instructions
+    *cpu->getPC() = 0x100;
+    setRomValue(0x100, 0xa00 | 0x100);   // jmp 0x100
+    cpu->runCycles(300);
+    EXPECT_EQ(300, cpu->getCycle());
+}
+
+TEST_F(CpuCycleTest, RunCyclesMayOvershootByTheLastInstruction) {
+    *cpu->getPC() = 0x100;
+    setRomValue(0x100, 0xa00 | 0x100);   // jmp 0x100, 3 cycles
+    cpu->runCycles(301);
+    EXPECT_EQ(303, cpu->getCycle());
+}
+
+TEST_F(CpuCycleTest, RunCyclesCarriesTheOvershootIntoTheNextCall) {
+    *cpu->getPC() = 0x100;
+    setRomValue(0x100, 0xa00 | 0x100);   // jmp 0x100, 3 cycles
+    cpu->runCycles(301);                 // ends at 303, 2 cycles too far
+    cpu->runCycles(301);                 // target 602, reached in steps of 3: 603
+    // without the carried surplus the target would be 604 and the end 606
+    EXPECT_EQ(603, cpu->getCycle());
+}

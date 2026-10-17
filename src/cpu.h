@@ -71,6 +71,13 @@ public:
 		return &joystickr;
 	};
 	/**
+	 * Executes instructions until the given number of clock cycles has passed.
+	 * The last instruction may run over the requested number, the surplus is
+	 * deducted from the next call so that the program runs at the right speed
+	 * on average. Use it to run one video frame (80 MHz / 60 = 1333333 cycles).
+	 */
+	void runCycles(unsigned int count);
+	/**
 	 * Number of clock cycles executed so far.
 	 */
 	int getCycle() const
@@ -116,6 +123,7 @@ private:
 	// Unsigned, because the counter runs over after about 27 seconds at 80 MHz.
 	unsigned int cycle;
 	unsigned int cycle2;
+	unsigned int overshoot; // cycles the last runCycles() went beyond its target
 	int prescaler; // prescaler for the timer
 	Video* video;
 	Bu8763* sound;

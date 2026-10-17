@@ -89,8 +89,9 @@ private:
     const int WINDOW_WIDTH = 561;
     const int WINDOW_HEIGHT = 550;
     const int TARGET_FPS = 60;
-    const int FRAME_DELAY = 1000 / TARGET_FPS;
-    const int INSTRUCTIONS_PER_FRAME = 1333333; // 80MHz/60fps
+    // The speed of the SX52 is given by the clock cycles, not by the number of
+    // instructions (jmp and call take 3 cycles, iread 4).
+    const unsigned int CYCLES_PER_FRAME = 1333333; // 80MHz/60fps
 };
 
 #endif // XGSEMU_H

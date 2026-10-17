@@ -203,14 +203,15 @@ int XGSEmu::run(const std::string& hexFilePath) {
     
     // Hauptschleife
     printf("Starte Hauptschleife...\n");
-    Uint32 frameStart;
-    int frameTime;
+    // The frame time is not a whole number of milliseconds (16.67 ms), so the
+    // time of the next frame is accumulated instead of waiting a fixed delay.
+    const Uint64 counterFrequency = SDL_GetPerformanceFrequency();
+    const Uint64 frameTicks = counterFrequency / TARGET_FPS;
+    Uint64 nextFrame = SDL_GetPerformanceCounter();
     int frameCount = 0;
     
     try {
         while (running) {
-            frameStart = SDL_GetTicks();
-            
             // Führe einen Frame aus
             handleEvents();
             
@@ -223,11 +224,14 @@ int XGSEmu::run(const std::string& hexFilePath) {
             
             render();
             
-            frameTime = SDL_GetTicks() - frameStart;
-            
             // Frame-Begrenzung
-            if (FRAME_DELAY > frameTime) {
-                SDL_Delay(FRAME_DELAY - frameTime);
+            nextFrame += frameTicks;
+            Uint64 now = SDL_GetPerformanceCounter();
+            if (nextFrame > now) {
+                SDL_Delay((Uint32)((nextFrame - now) * 1000 / counterFrequency));
+            } else if (now - nextFrame > frameTicks * 5) {
+                // Far behind (menu, window drag): do not try to catch up
+                nextFrame = now;
             }
             
             // Debug-Ausgabe alle 100 Frames
@@ -342,10 +346,8 @@ void XGSEmu::handleEvents() {
 
 void XGSEmu::update() {
     if (cpu != nullptr) {
-        // Execute CPU instructions
-        for (int i = 0; i < INSTRUCTIONS_PER_FRAME; i++) {
-            cpu->execute();
-        }
+        // Execute one frame of clock cycles
+        cpu->runCycles(CYCLES_PER_FRAME);
         
         // Update texture from emuDisplay
         updateTexture();

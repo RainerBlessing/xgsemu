@@ -54,6 +54,7 @@ void Cpu::reset()
 	memset (SRAM, 0, 131072*sizeof(unsigned char));
 	cycle = 0;
 	cycle2 = 0;
+	overshoot = 0;
 	prescaler = 0;
 	lastRa = 0;
 	sp = Stack;
@@ -64,6 +65,17 @@ USHORT *
 Cpu::getROM ()
 {
 	return ROM;
+}
+
+void Cpu::runCycles(unsigned int count)
+{
+	unsigned int target = cycle + count - overshoot;
+	// signed difference, the counter may run over
+	while ((int)(cycle - target) < 0)
+	{
+		execute();
+	}
+	overshoot = cycle - target;
 }
 
 unsigned char *
