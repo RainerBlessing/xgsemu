@@ -247,34 +247,35 @@ void Cpu::portWritten(USHORT fr, unsigned char value)
 	}
 }
 
-// setb/clrb on a port register: the register is not changed like RAM, the
-// bit goes out to the pin. Returns false for all other registers.
+// setb/clrb on a port register: the bit goes into the latch of the port. If the
+// pin is an output (its bit in the direction register is 0) the outside world
+// sees the change: RA is the joystick and the sound chip, RC the SRAM, RE the
+// video. Returns false if the register is not a port or the pin is an input.
 bool Cpu::portBitWritten(USHORT fr, USHORT bit, bool set)
 {
-	if (!(fr > 0x4 && fr < 0xa && (~Tris[fr - 5]&bit) == bit))
+	if (!(fr > 0x4 && fr < 0xa && (Tris[fr - 5] & (1 << bit)) == 0))
 	{
 		return false;
 	}
+	if (set)
+		RAM[fr] |= 1 << bit;
+	else
+		RAM[fr] &= ~(1 << bit);
+	next();
 	switch (fr - 5)
 	{
 		case 0:
-			if (set)
-				*ra |= 1 << bit;
-			else
-				*ra &= ~(1 << bit);
 			joystick();
 			break;
 		case 2:
-			if (set)
-				*rc |= 1 << bit;
-			else
-				*rc &= ~(1 << bit);
 			sram();
+			break;
+		case 4:
+			video->changeVideo(cycle, RAM[fr]);
 			break;
 		default:
 			break;
 	}
-	next();
 	return true;
 }
 

@@ -750,3 +750,68 @@ TEST_F(CpuResultTest, BitInstructionsOnRegisters) {
     cpu->execute();
     EXPECT_EQ(0x00, ram[0x0c]);
 }
+
+// setb/clrb on a port register: the bit goes into the latch of the port. If the
+// pin is an output (its bit in the direction register is 0) the outside world
+// sees it: RA is the joystick and the sound chip, RC the SRAM, RE the video.
+class CpuPortBitTest : public CpuTest {
+protected:
+    void run(USHORT opcode) {
+        *cpu->getPC() = 0x100;
+        setRomValue(0x100, opcode);
+        cpu->execute();
+    }
+
+    // direction register of port RB..RE: 0 is output, 1 is input
+    void setDirection(int port, int value) {
+        cpu->getRAM()[261] = value;
+        run(0x05f);           // mode #0xf
+        run(0x005 + port);    // mov !r<port>,w
+    }
+};
+
+TEST_F(CpuPortBitTest, SetbOnAnOutputOfPortBChangesTheLatch) {
+    setDirection(1, 0x00);
+    cpu->getRAM()[6] = 0x00;
+    run(0x500 | (3 << 5) | 6);   // setb RB.3
+    EXPECT_EQ(0x08, cpu->getRAM()[6]);
+}
+
+TEST_F(CpuPortBitTest, ClrbOnAnOutputOfPortDChangesTheLatch) {
+    setDirection(3, 0x00);
+    cpu->getRAM()[8] = 0xff;
+    run(0x400 | (7 << 5) | 8);   // clrb RD.7
+    EXPECT_EQ(0x7f, cpu->getRAM()[8]);
+}
+
+TEST_F(CpuPortBitTest, SetbOnAnOutputOfPortEPutsTheNewColourOnTheVideo) {
+    setDirection(4, 0x00);
+    cpu->getRAM()[9] = 0x01;
+    run(0x500 | (4 << 5) | 9);   // setb RE.4
+    EXPECT_EQ(0x11, cpu->getRAM()[9]);
+    EXPECT_EQ(1, videoMock->calls);
+    EXPECT_EQ(0x11, videoMock->lastValue);
+}
+
+TEST_F(CpuPortBitTest, ClrbOnAnOutputOfPortEPutsTheNewColourOnTheVideo) {
+    setDirection(4, 0x00);
+    cpu->getRAM()[9] = 0xff;
+    run(0x400 | (0 << 5) | 9);   // clrb RE.0
+    EXPECT_EQ(1, videoMock->calls);
+    EXPECT_EQ(0xfe, videoMock->lastValue);
+}
+
+TEST_F(CpuPortBitTest, SetbOnAnInputOfPortEDoesNotReachTheVideo) {
+    setDirection(4, 0x10);       // RE.4 is an input
+    cpu->getRAM()[9] = 0x01;
+    run(0x500 | (4 << 5) | 9);   // setb RE.4
+    EXPECT_EQ(0, videoMock->calls);
+}
+
+TEST_F(CpuPortBitTest, SetbOnAnOutputPinWithAHigherBitNumberStillCounts) {
+    // the direction register has 0 for outputs: only bit 5 is an input
+    setDirection(4, 0x20);
+    cpu->getRAM()[9] = 0x00;
+    run(0x500 | (6 << 5) | 9);   // setb RE.6, an output
+    EXPECT_EQ(1, videoMock->calls);
+}
