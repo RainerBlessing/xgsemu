@@ -95,6 +95,16 @@ if(EMSCRIPTEN)
     )
 endif()
 
+# Command line assembler and disassembler
+if(NOT EMSCRIPTEN)
+    add_executable(sxasm tools/sxasm.cpp src/hex_file.cpp)
+    target_link_libraries(sxasm sxcpu)
+    target_include_directories(sxasm PRIVATE src)
+    add_executable(sxdis tools/sxdis.cpp src/hex_file.cpp)
+    target_link_libraries(sxdis sxcpu)
+    target_include_directories(sxdis PRIVATE src)
+endif()
+
 # Install the executable
 install(TARGETS xgsemu DESTINATION bin)
 
