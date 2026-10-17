@@ -222,17 +222,30 @@ table:  dw 123, start       ; raw 12 bit words
 | `org addr` | Continue at this address. The ROM has 4096 words, unused ones get `0xFFF`. |
 | `name equ value` | A name for a number (register, literal), usable everywhere a number is, also before the definition. |
 | `dw value, ...` | Raw 12 bit words. Values can be numbers, names or labels (a label keeps its full address). |
+| `autopage on` / `autopage off` | Puts `page n` in front of every `jmp` and `call` to a label on another page, until switched off. Off at the start. |
 
 The registers have names: `rtcc`, `pc`, `status`, `fsr` and `ra` to `re`. `w`, `m`,
 `option` and `wdt` are reserved, names are case sensitive and can only be defined
 once. A name wins over a number spelled the same, so do not call a label `a` or
 `ff`.
 
-The assembler does not select the page for you: a `jmp` reaches only the current
-page of 512 words and a `call` only its first 256 words, switch with `page n`
-first. Errors are reported as
-`game.asm: line 7: unknown name loopp`. ID and fuses of the hex file stay
-unprogrammed.
+A `jmp` reaches only the current page of 512 words and a `call` only its first 256
+words, so the page has to be switched with `page n` first. Without `autopage` you
+write it yourself. With `autopage on` the assembler inserts `page n` in front of
+each `jmp` and `call` to a label on another page. It takes the page of the
+address a piece of code stands at as the page it runs in, so:
+
+- A function on another page has to end with `retp`, which restores the page of
+  the caller.
+- Code must not run from the end of one page into the next without a jump.
+- An inserted `page` takes one cycle. Leave `autopage` off in code where the cycles
+  count (the video lines) and write the pages by hand. A `page` you wrote
+  right in front of a `jmp` is not doubled.
+- Numbers as targets (`jmp 1ff`) are left alone.
+
+Inserted words move the labels behind them, the assembler takes care of that. Errors
+are reported as `game.asm: line 7: unknown name loopp`. ID and fuses of the hex
+file stay unprogrammed.
 
 The same code is in [sxcpu](https://github.com/RainerBlessing/sxcpu) as
 `assemble()`, `assembleSource()` and `disassemble()`.

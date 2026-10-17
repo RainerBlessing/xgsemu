@@ -189,3 +189,84 @@ TEST_F(AssembleSourceTest, EquMayBeUsedBeforeItsDefinition) {
     ASSERT_TRUE(assembleText("mov late, w\nlate equ 5\n")) << error;
     EXPECT_EQ(0x025, rom[0]);
 }
+
+// automatic page instructions
+
+TEST_F(AssembleSourceTest, AutopageInsertsPageBeforeAJumpToAnotherPage) {
+    ASSERT_TRUE(assembleText("autopage on\njmp far\norg 200\nfar: nop\n")) << error;
+    EXPECT_EQ(0x011, rom[0]);
+    EXPECT_EQ(0xa00 | 0, rom[1]);
+    EXPECT_EQ(0x000, rom[0x200]);
+}
+
+TEST_F(AssembleSourceTest, AutopageLeavesAJumpWithinThePageAlone) {
+    ASSERT_TRUE(assembleText("autopage on\njmp near\nnear: nop\n")) << error;
+    EXPECT_EQ(0xa00 | 1, rom[0]);
+    EXPECT_EQ(0x000, rom[1]);
+}
+
+TEST_F(AssembleSourceTest, WithoutAutopageNothingIsInserted) {
+    ASSERT_TRUE(assembleText("jmp far\norg 200\nfar: nop\n")) << error;
+    EXPECT_EQ(0xa00, rom[0]);
+    EXPECT_EQ(UNUSED, rom[1]);
+}
+
+TEST_F(AssembleSourceTest, AutopageCanBeSwitchedOff) {
+    ASSERT_TRUE(assembleText("autopage on\nautopage off\njmp far\norg 200\nfar: nop\n")) << error;
+    EXPECT_EQ(0xa00, rom[0]);
+}
+
+TEST_F(AssembleSourceTest, AutopageAlsoPrecedesACall) {
+    ASSERT_TRUE(assembleText("autopage on\ncall sub\norg 200\nsub: retp\n")) << error;
+    EXPECT_EQ(0x011, rom[0]);
+    EXPECT_EQ(0x900 | 0, rom[1]);
+}
+
+TEST_F(AssembleSourceTest, AutopageLeavesNumbersAlone) {
+    ASSERT_TRUE(assembleText("autopage on\njmp 1ff\n")) << error;
+    EXPECT_EQ(0xbff, rom[0]);
+    EXPECT_EQ(UNUSED, rom[1]);
+}
+
+TEST_F(AssembleSourceTest, AutopageMovesTheLabelsBehindIt) {
+    ASSERT_TRUE(assembleText("autopage on\njmp far\nnext: nop\norg 200\nfar: jmp next\n")) << error;
+    EXPECT_EQ(0x011, rom[0]);
+    EXPECT_EQ(0x000, rom[2]);
+    EXPECT_EQ(0x010, rom[0x200]);
+    EXPECT_EQ(0xa00 | 2, rom[0x201]);
+}
+
+TEST_F(AssembleSourceTest, LabelOnTheJumpPointsAtTheInsertedPage) {
+    ASSERT_TRUE(assembleText("autopage on\nstart: jmp far\norg 200\nfar: jmp start\n")) << error;
+    EXPECT_EQ(0x011, rom[0]);
+    EXPECT_EQ(0x010, rom[0x200]);
+    EXPECT_EQ(0xa00 | 0, rom[0x201]);
+}
+
+TEST_F(AssembleSourceTest, AutopageDoesNotRepeatAnExplicitPage) {
+    ASSERT_TRUE(assembleText("autopage on\npage 1\njmp far\norg 200\nfar: nop\n")) << error;
+    EXPECT_EQ(0x011, rom[0]);
+    EXPECT_EQ(0xa00, rom[1]);
+    EXPECT_EQ(UNUSED, rom[2]);
+}
+
+TEST_F(AssembleSourceTest, AutopageRepeatsUntilTheAddressesAreStable) {
+    // The first page moves the label lab across the page boundary, which
+    // makes the second jump need a page as well.
+    std::string source = "autopage on\njmp far\n";
+    for (int i = 0; i < 0x1fd; i++) {
+        source += "dw 0\n";
+    }
+    source += "jmp lab\nlab: nop\norg 400\nfar: nop\n";
+    ASSERT_TRUE(assembleText(source)) << error;
+    EXPECT_EQ(0x012, rom[0]);
+    EXPECT_EQ(0x011, rom[0x1ff]);
+    EXPECT_EQ(0xa00 | 1, rom[0x200]);
+    EXPECT_EQ(0x000, rom[0x201]);
+}
+
+TEST_F(AssembleSourceTest, AutopageNeedsOnOrOff) {
+    EXPECT_FALSE(assembleText("autopage\n"));
+    EXPECT_FALSE(assembleText("autopage maybe\n"));
+    EXPECT_NE(std::string::npos, error.find("line 1")) << error;
+}
