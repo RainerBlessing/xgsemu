@@ -8,11 +8,13 @@ public:
     MockVideo() : Video() {}
     
     // Die Methode muss genau dem virtuellen Funktionsprototyp in Video entsprechen
-    void changeVideo(int cycle, unsigned char val) {
+    void changeVideo(int cycle, unsigned char val) override {
         lastCycle = cycle;
         lastValue = val;
+        calls++;
     }
     
+    int calls = 0;
     int lastCycle = 0;
     unsigned char lastValue = 0;
 };
@@ -217,7 +219,7 @@ TEST_F(CpuTest, VideoObjectUsed) {
     // Hinweis: Dies funktioniert nur, wenn die CPU die changeVideo-Methode 
     // für Register 9 (RE) aufruft, was in der aktuellen CPU-Implementierung
     // möglicherweise nicht der Fall ist.
-    // EXPECT_EQ(videoMock->lastValue, 0x42);
+    EXPECT_EQ(videoMock->lastValue, 0x42);
 }
 
 
@@ -409,4 +411,50 @@ TEST_F(CpuCycleTest, RunCyclesCarriesTheOvershootIntoTheNextCall) {
     cpu->runCycles(301);                 // target 602, reached in steps of 3: 603
     // without the carried surplus the target would be 604 and the end 606
     EXPECT_EQ(603, cpu->getCycle());
+}
+
+// clr fr on a port register has the same side effects as mov fr,w: clearing RE
+// puts black on the video, clearing RA runs the joystick code.
+TEST_F(CpuTest, ClrReWritesBlackToVideo) {
+    *cpu->getPC() = 0;
+    cpu->getRAM()[9] = 0xff;
+    setRomValue(0, 0x069);   // clr RE
+
+    cpu->execute();
+
+    EXPECT_EQ(0, cpu->getRAM()[9]);
+    EXPECT_EQ(1, videoMock->calls);
+    EXPECT_EQ(0, videoMock->lastValue);
+}
+
+TEST_F(CpuTest, ClrRaDoesNotWriteToVideo) {
+    *cpu->getPC() = 0;
+    cpu->getRAM()[5] = 0xff;
+    setRomValue(0, 0x065);   // clr RA
+
+    cpu->execute();
+
+    EXPECT_EQ(0, cpu->getRAM()[5]);
+    EXPECT_EQ(0, videoMock->calls);
+}
+
+TEST_F(CpuTest, ClrNormalRegisterDoesNotWriteToVideo) {
+    *cpu->getPC() = 0;
+    cpu->getRAM()[0x0c] = 0xff;
+    setRomValue(0, 0x06c);   // clr 0x0c
+
+    cpu->execute();
+
+    EXPECT_EQ(0, cpu->getRAM()[0x0c]);
+    EXPECT_EQ(0, videoMock->calls);
+}
+
+TEST_F(CpuTest, ClrSetsTheZeroFlag) {
+    *cpu->getPC() = 0;
+    cpu->getRAM()[3] = 0;
+    setRomValue(0, 0x06c);   // clr 0x0c
+
+    cpu->execute();
+
+    EXPECT_EQ(1 << 2, cpu->getRAM()[3] & (1 << 2));
 }

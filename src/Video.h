@@ -27,7 +27,7 @@ public:
 	 * @param cycle The current clock cycle
 	 * @param colour The colour of the line fragment
 	 */
-	void changeVideo(int cycle, unsigned char colour);
+	virtual void changeVideo(int cycle, unsigned char colour);
 	/**
 	 * Forgets the timing of the old signal. Call it when the cycle counter
 	 * starts again at 0, i.e. when a new program is loaded or the CPU is reset.

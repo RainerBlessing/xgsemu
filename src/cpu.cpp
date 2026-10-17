@@ -531,22 +531,17 @@ void Cpu::execute ()
 						fr = (*fsr & 0xf0) | (fr & 0xf);
 
 					RAM[fr] = 0;
-					if (fr > 0x4 && fr < 0xa && (~Tris[fr - 5]&bit) == bit)
+					// the same side effects as mov fr,w
+					switch (fr - 5)
 					{
-						switch (fr - 5)
-						{
-							case 0:
-								if (bit < 3)
-								{
-									*ra &= ~(1 << bit);
-									joystick();
-								}
-							case 4:
-								video->changeVideo(cycle, 0);
-								break;
-							default:
-								break;
-						}
+						case 0:
+							joystick();
+							break;
+						case 4:
+							video->changeVideo(cycle, 0);
+							break;
+						default:
+							break;
 					}
 					*status |= 1 << 2;
 					cycle++;
