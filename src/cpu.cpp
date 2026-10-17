@@ -39,6 +39,13 @@ Cpu::Cpu (Video* video)
 	t1 = SDL_GetTicks();
 	reset();
 	this->video = video;
+	sound = NULL;
+}
+
+void Cpu::setSound(Bu8763* sound)
+{
+	this->sound = sound;
+	lastRa = *ra;
 }
 
 void Cpu::reset()
@@ -48,6 +55,7 @@ void Cpu::reset()
 	cycle = 0;
 	cycle2 = 0;
 	prescaler = 0;
+	lastRa = 0;
 	sp = Stack;
 	pc = 0xfff;
 }
@@ -79,6 +87,17 @@ void Cpu::execute ()
 	int i = 0;
 
 	mne = ROM[pc];
+
+	// The sound chip hangs on port RA. Check once per instruction instead of
+	// in every opcode that can write to the port.
+	if (*ra != lastRa)
+	{
+		lastRa = *ra;
+		if (sound != NULL)
+		{
+			sound->portWrite(lastRa);
+		}
+	}
 
 	prescaler += (cycle - cycle2);
 	if (prescaler > (2 << (option&0x7)))
@@ -116,11 +135,8 @@ void Cpu::execute ()
 				switch (fr - 5)
 				{
 					case 0:
-						if (bit < 3)
-						{
-							*ra |= 1 << bit;
-							joystick();
-						}
+						*ra |= 1 << bit;
+						joystick();
 						break;
 					case 2:
 						*rc |= 1 << bit;
@@ -232,11 +248,8 @@ void Cpu::execute ()
 				switch (fr - 5)
 				{
 					case 0:
-						if (bit < 3)
-						{
-							*ra &= ~(1 << bit);
-							joystick();
-						}
+						*ra &= ~(1 << bit);
+						joystick();
 						break;
 					case 2:
 						*rc &= ~(1 << bit);

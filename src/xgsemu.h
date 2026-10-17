@@ -27,6 +27,7 @@
 
 class Video;
 class Cpu;
+class Bu8763;
 
 const int WINDOW_WIDTH = 560;  // Entspricht der Surface-Breite in Video.cpp
 const int WINDOW_HEIGHT = 525; // Entspricht der Surface-Höhe in Video.cpp
@@ -51,6 +52,9 @@ private:
     void render();
     void updateTexture();
     void openFileDialog();
+    void openAudio();
+    void closeAudio();
+    static void audioCallback(void* userdata, Uint8* stream, int length);
     
     // Helper methods
     bool isHexOrObjFile(const std::string& path);
@@ -70,6 +74,9 @@ private:
     Video* video;
     Cpu* cpu;
     Uint16* joystickr;
+    Bu8763* sound;
+    SDL_AudioDeviceID audioDevice;
+    int audioSampleRate;
     
     // State variables
     bool running;

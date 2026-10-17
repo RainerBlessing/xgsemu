@@ -159,6 +159,9 @@ if(BUILD_TESTS)
         # Test-Executable erstellen
         add_executable(unit_tests ${TEST_SOURCES})
         target_link_libraries(unit_tests gtest gtest_main xgsemu_lib)
+        target_compile_definitions(unit_tests PRIVATE
+            EXAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/examples"
+        )
 
         # Include‐Pfad anpassen
         target_include_directories(unit_tests PRIVATE 

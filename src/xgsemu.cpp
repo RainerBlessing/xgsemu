@@ -21,6 +21,7 @@
 #include "xgsemu.h"
 #include "Video.h"
 #include "cpu.h"
+#include "Bu8763.h"
 #include "filehandler.h"
 #include <fstream>
 #include <iostream>
@@ -69,6 +70,9 @@ XGSEmu::XGSEmu(const std::string& appDir, const std::string& title)
       video(NULL),
       cpu(NULL),
       joystickr(NULL),
+      sound(NULL),
+      audioDevice(0),
+      audioSampleRate(44100),
       running(true),
       isFullscreen(false),
       appDir(appDir),
@@ -115,11 +119,56 @@ XGSEmu::XGSEmu(const std::string& appDir, const std::string& title)
     
     // Lade letzte Verzeichniskonfiguration
     lastDirectory = loadConfig("LoadDirectory", ".");
+
+    sound = new Bu8763();
+    openAudio();
+}
+
+void XGSEmu::openAudio() {
+    // Kein Audio-Geraet ist kein Grund, den Emulator nicht zu starten.
+    if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
+        printf("Audio konnte nicht initialisiert werden! SDL-Fehler: %s\n", SDL_GetError());
+        return;
+    }
+
+    SDL_AudioSpec wanted;
+    SDL_AudioSpec obtained;
+    SDL_zero(wanted);
+    wanted.freq = audioSampleRate;
+    wanted.format = AUDIO_S16SYS;
+    wanted.channels = 1;
+    wanted.samples = 1024;
+    wanted.callback = audioCallback;
+    wanted.userdata = this;
+
+    audioDevice = SDL_OpenAudioDevice(NULL, 0, &wanted, &obtained, 0);
+    if (audioDevice == 0) {
+        printf("Audio-Geraet konnte nicht geoeffnet werden! SDL-Fehler: %s\n", SDL_GetError());
+        return;
+    }
+    audioSampleRate = obtained.freq;
+    SDL_PauseAudioDevice(audioDevice, 0);
+}
+
+void XGSEmu::closeAudio() {
+    if (audioDevice != 0) {
+        SDL_CloseAudioDevice(audioDevice);
+        audioDevice = 0;
+    }
+}
+
+void XGSEmu::audioCallback(void* userdata, Uint8* stream, int length) {
+    XGSEmu* emu = static_cast<XGSEmu*>(userdata);
+    emu->sound->render(reinterpret_cast<short*>(stream), length / sizeof(short), emu->audioSampleRate);
 }
 
 XGSEmu::~XGSEmu() {
+    // Der Audio-Thread greift auf sound zu, deshalb zuerst schliessen.
+    closeAudio();
+
     // Clean up emulator components
     delete cpu;
+    delete sound;
     delete video;
     
     // Clean up SDL2 components
@@ -416,6 +465,8 @@ void XGSEmu::loadHexFile(const std::string& path) {
     try {
         cpu = new Cpu(video);
         joystickr = cpu->getJoystrickr();
+        sound->reset();
+        cpu->setSound(sound);
         
         FileHandler fh;
         printf("Lade ROM-Datei: %s\n", path.c_str());
@@ -445,6 +496,7 @@ void XGSEmu::loadHexFile(const std::string& path) {
 void XGSEmu::reset() {
     if (cpu != nullptr) {
         cpu->reset();
+        sound->reset();
     }
 }
 

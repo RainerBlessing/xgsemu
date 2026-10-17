@@ -20,6 +20,7 @@
 #define USHORT unsigned short
 #include <string>
 #include "Video.h"
+#include "Bu8763.h"
 
 using std::string;
 
@@ -69,6 +70,11 @@ public:
 	{
 		return &joystickr;
 	};
+	/**
+	 * Connects the sound chip. Changes of port RA are forwarded to it.
+	 * @param sound The chip or NULL to disable the sound
+	 */
+	void setSound(Bu8763* sound);
 private:
 	/**
 	 *  The SRAM emulation.
@@ -104,6 +110,8 @@ private:
 	int cycle2;
 	int prescaler; // prescaler for the timer
 	Video* video;
+	Bu8763* sound;
+	unsigned char lastRa; // RA as the sound chip has seen it
 	Uint16 joystickr;
 	inline USHORT getRegisterIndex(USHORT fr);
 	inline void updateZeroFlag(USHORT value);
