@@ -512,3 +512,207 @@ TEST_F(CpuTest, ResetClearsTheModeRegister) {
     cpu->execute();
     EXPECT_EQ(0, ram[261]);
 }
+
+// Result and flags of the instructions with a register operand. The register
+// is 0x0c, the flags are Z = 4, DC = 2, C = 1 in the status register.
+class CpuResultTest : public CpuTest {
+protected:
+    static const int Z = 4;
+    static const int DC = 2;
+    static const int C = 1;
+    static const int NONE = -1;
+
+    struct Case {
+        const char* name;
+        USHORT opcode;
+        int w;               // value of W before
+        int reg;             // value of the register 0x0c before
+        int status;          // status register before
+        int expectedW;       // NONE: not checked
+        int expectedReg;     // NONE: not checked
+        int flagMask;        // the flags that are checked
+        int expectedFlags;
+    };
+
+    void check(const Case& c) {
+        SCOPED_TRACE(c.name);
+        unsigned char* ram = cpu->getRAM();
+        ram[261] = c.w;
+        ram[0x0c] = c.reg;
+        ram[3] = c.status;
+        *cpu->getPC() = 0x100;
+        setRomValue(0x100, c.opcode);
+
+        cpu->execute();
+
+        if (c.expectedW != NONE) {
+            EXPECT_EQ(c.expectedW, ram[261]);
+        }
+        if (c.expectedReg != NONE) {
+            EXPECT_EQ(c.expectedReg, ram[0x0c]);
+        }
+        EXPECT_EQ(c.expectedFlags, ram[3] & c.flagMask);
+    }
+};
+
+TEST_F(CpuResultTest, LogicInstructions) {
+    const Case cases[] = {
+        {"and fr,w", 0x160 | 0x0c, 0x0f, 0xf0, 0, NONE, 0x00, Z, Z},
+        {"and fr,w keeps", 0x160 | 0x0c, 0xff, 0x3c, Z, NONE, 0x3c, Z, 0},
+        {"and w,fr", 0x140 | 0x0c, 0xf0, 0x3c, 0, 0x30, NONE, Z, 0},
+        {"or fr,w", 0x120 | 0x0c, 0x00, 0x00, 0, NONE, 0x00, Z, Z},
+        {"or fr,w sets bits", 0x120 | 0x0c, 0x02, 0x01, Z, NONE, 0x03, Z, 0},
+        {"or w,fr", 0x100 | 0x0c, 0x01, 0x02, Z, 0x03, NONE, Z, 0},
+        {"xor fr,w", 0x1a0 | 0x0c, 0xff, 0xff, 0, NONE, 0x00, Z, Z},
+        {"xor w,fr", 0x180 | 0x0c, 0x0f, 0xff, 0, 0xf0, NONE, Z, 0},
+        {"not fr", 0x260 | 0x0c, 0, 0xff, 0, NONE, 0x00, Z, Z},
+        {"not fr nonzero", 0x260 | 0x0c, 0, 0x00, Z, NONE, 0xff, Z, 0},
+        {"and w,#lit", 0xe0f, 0xff, 0, 0, 0x0f, NONE, Z, 0},
+        {"or w,#lit", 0xd00, 0x00, 0, 0, 0x00, NONE, Z, Z},
+        {"xor w,#lit", 0xf55, 0x55, 0, 0, 0x00, NONE, Z, Z},
+    };
+    for (const Case& c : cases) check(c);
+}
+
+TEST_F(CpuResultTest, IncrementDecrementAndMove) {
+    const Case cases[] = {
+        {"inc fr wraps", 0x2a0 | 0x0c, 0, 0xff, 0, NONE, 0x00, Z, Z},
+        {"inc fr", 0x2a0 | 0x0c, 0, 0x01, Z, NONE, 0x02, Z, 0},
+        {"dec fr to zero", 0x0e0 | 0x0c, 0, 0x01, 0, NONE, 0x00, Z, Z},
+        {"dec fr wraps", 0x0e0 | 0x0c, 0, 0x00, Z, NONE, 0xff, Z, 0},
+        {"mov w,fr", 0x200 | 0x0c, 0x55, 0x00, 0, 0x00, NONE, Z, Z},
+        {"mov w,/fr", 0x240 | 0x0c, 0, 0xff, 0, 0x00, NONE, Z, Z},
+        {"mov w,--fr", 0x0c0 | 0x0c, 0, 0x01, 0, 0x00, 0x01, Z, Z},
+        {"mov w,++fr", 0x280 | 0x0c, 0, 0xff, 0, 0x00, 0xff, Z, Z},
+        {"mov w,<>fr", 0x380 | 0x0c, 0, 0x12, 0, 0x21, 0x12, 0, 0},
+        {"swap fr", 0x3a0 | 0x0c, 0, 0x12, Z, NONE, 0x21, Z, Z},
+        {"test fr zero", 0x220 | 0x0c, 0, 0x00, 0, NONE, 0x00, Z, Z},
+        {"test fr nonzero", 0x220 | 0x0c, 0, 0x80, Z, NONE, 0x80, Z, 0},
+        {"mov fr,w", 0x020 | 0x0c, 0x77, 0x00, 0, NONE, 0x77, 0, 0},
+        {"clr fr", 0x060 | 0x0c, 0, 0x77, 0, NONE, 0x00, Z, Z},
+        {"clr w", 0x040, 0x77, 0, 0, 0x00, NONE, Z, Z},
+        {"mov w,#lit", 0xc2a, 0, 0, 0, 0x2a, NONE, 0, 0},
+    };
+    for (const Case& c : cases) check(c);
+}
+
+TEST_F(CpuResultTest, RotateThroughCarry) {
+    const Case cases[] = {
+        {"rl fr carry out", 0x360 | 0x0c, 0, 0x81, 0, NONE, 0x02, C, C},
+        {"rl fr carry in", 0x360 | 0x0c, 0, 0x01, C, NONE, 0x03, C, 0},
+        {"rr fr carry out", 0x320 | 0x0c, 0, 0x01, 0, NONE, 0x00, C, C},
+        {"rr fr carry in", 0x320 | 0x0c, 0, 0x02, C, NONE, 0x81, C, 0},
+        {"rl does not touch zero", 0x360 | 0x0c, 0, 0x00, Z, NONE, 0x00, Z, Z},
+    };
+    for (const Case& c : cases) check(c);
+}
+
+TEST_F(CpuResultTest, AddAndSubtract) {
+    const Case cases[] = {
+        {"add fr,w carry", 0x1e0 | 0x0c, 0x01, 0xff, 0, NONE, 0x00, C, C},
+        {"add fr,w digit carry", 0x1e0 | 0x0c, 0x01, 0x0f, 0, NONE, 0x10, Z | C | DC, DC},
+        {"add fr,w plain", 0x1e0 | 0x0c, 0x01, 0x01, Z | C | DC, NONE, 0x02, Z | C | DC, 0},
+        {"add w,fr carry", 0x1c0 | 0x0c, 0xf0, 0x20, 0, 0x10, NONE, C, C},
+        {"add w,fr zero", 0x1c0 | 0x0c, 0x80, 0x80, 0, 0x00, NONE, Z | C, Z | C},
+        {"sub fr,w no borrow", 0x0a0 | 0x0c, 0x03, 0x05, 0, NONE, 0x02, C, C},
+        {"sub fr,w borrow", 0x0a0 | 0x0c, 0x05, 0x03, C, NONE, 0xfe, C, 0},
+        {"mov w,fr-w equal", 0x080 | 0x0c, 0x05, 0x05, 0, 0x00, 0x05, Z | C, Z | C},
+        {"mov w,fr-w borrow", 0x080 | 0x0c, 0x06, 0x05, C, 0xff, NONE, Z | C, 0},
+    };
+    for (const Case& c : cases) check(c);
+}
+
+TEST_F(CpuResultTest, IndirectAddressingUsesFsr) {
+    unsigned char* ram = cpu->getRAM();
+    ram[4] = 0x35;                    // FSR
+    ram[0x35] = 0x41;
+    ram[261] = 0x01;
+    *cpu->getPC() = 0x100;
+    setRomValue(0x100, 0x1e0 | 0x00); // add INDF,w
+    cpu->execute();
+    EXPECT_EQ(0x42, ram[0x35]);
+}
+
+TEST_F(CpuResultTest, RegistersAbove0x0fAreInTheBankOfFsr) {
+    unsigned char* ram = cpu->getRAM();
+    ram[4] = 0x30;                    // bank 3
+    ram[0x3c] = 0x10;
+    ram[261] = 0x01;
+    *cpu->getPC() = 0x100;
+    setRomValue(0x100, 0x1e0 | 0x1c); // add 0x1c,w: bank 3, register 0xc
+    cpu->execute();
+    EXPECT_EQ(0x11, ram[0x3c]);
+}
+
+TEST_F(CpuResultTest, SkippingInstructionsContinueBehindTheNextOne) {
+    unsigned char* ram = cpu->getRAM();
+    *cpu->getPC() = 0x100;
+    ram[0x0c] = 1;
+    setRomValue(0x100, 0x2e0 | 0x0c);   // decsz 0x0c
+    cpu->execute();
+    EXPECT_EQ(0x102, *cpu->getPC());
+}
+
+TEST_F(CpuResultTest, SkipPassesPageAndBankInstructions) {
+    unsigned char* ram = cpu->getRAM();
+    *cpu->getPC() = 0x100;
+    ram[0x0c] = 1;
+    setRomValue(0x100, 0x2e0 | 0x0c);   // decsz 0x0c
+    setRomValue(0x101, 0x012);          // page 2, is skipped together
+    setRomValue(0x102, 0x01b);          // bank 3, as well
+    cpu->execute();
+    EXPECT_EQ(0x104, *cpu->getPC());
+}
+
+TEST_F(CpuResultTest, PageAndBankInstructionsSelectPageAndBank) {
+    unsigned char* ram = cpu->getRAM();
+    ram[3] = 0x07;
+    ram[4] = 0x0a;
+    *cpu->getPC() = 0x100;
+    setRomValue(0x100, 0x012);          // page 2
+    setRomValue(0x101, 0x01b);          // bank 3
+    cpu->execute();
+    cpu->execute();
+    EXPECT_EQ((2 << 5) | 0x07, ram[3]);
+    EXPECT_EQ(0x3a, ram[4]);
+}
+
+TEST_F(CpuResultTest, IreadReadsTheProgramMemoryAt_M_W) {
+    unsigned char* ram = cpu->getRAM();
+    *cpu->getPC() = 0x100;
+    setRomValue(0x100, 0x05b);          // mode #0xb
+    setRomValue(0x101, 0x041);          // iread
+    setRomValue(0xb34, 0x9a5);          // the word that is read
+    ram[261] = 0x34;
+    cpu->execute();
+    cpu->execute();
+    EXPECT_EQ(0xa5, ram[261]);
+    setRomValue(0x102, 0x042);          // mov w,m: the upper four bits are in M
+    cpu->execute();
+    EXPECT_EQ(0x9, ram[261]);
+}
+
+TEST_F(CpuResultTest, CallAndReturn) {
+    unsigned char* ram = cpu->getRAM();
+    *cpu->getPC() = 0x100;
+    ram[3] = 0;
+    setRomValue(0x100, 0x920);          // call 0x20
+    setRomValue(0x20, 0x80a);           // retw #10
+    cpu->execute();
+    EXPECT_EQ(0x20, *cpu->getPC());
+    cpu->execute();
+    EXPECT_EQ(0x101, *cpu->getPC());
+    EXPECT_EQ(10, ram[261]);
+}
+
+TEST_F(CpuResultTest, BitInstructionsOnRegisters) {
+    unsigned char* ram = cpu->getRAM();
+    ram[0x0c] = 0x00;
+    *cpu->getPC() = 0x100;
+    setRomValue(0x100, 0x500 | (3 << 5) | 0x0c);   // setb 0x0c.3
+    cpu->execute();
+    EXPECT_EQ(0x08, ram[0x0c]);
+    setRomValue(0x101, 0x400 | (3 << 5) | 0x0c);   // clrb 0x0c.3
+    cpu->execute();
+    EXPECT_EQ(0x00, ram[0x0c]);
+}
