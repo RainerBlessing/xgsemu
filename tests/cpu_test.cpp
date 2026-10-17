@@ -83,14 +83,14 @@ TEST_F(CpuTest, ExecuteNopInstruction) {
     EXPECT_EQ(*pc, 1);
 }
 
-// Teste MOV W,#lit Instruction (0xC0xx)
+// Teste MOV W,#lit Instruction (1100 kkkk kkkk, die Befehle des SX52 sind 12 Bit breit)
 TEST_F(CpuTest, ExecuteMovWLitInstruction) {
     // Setze PC auf 0
     USHORT* pc = cpu->getPC();
     *pc = 0;
     
     // MOV W,#42 - Lade die Konstante 42 in W
-    setRomValue(0, 0xC02A);
+    setRomValue(0, 0xC2A);
     
     unsigned short* rom = cpu->getROM();
     // Führe die Instruktion aus
@@ -104,21 +104,21 @@ TEST_F(CpuTest, ExecuteMovWLitInstruction) {
     EXPECT_EQ(*pc, 1);
 }
 
-// Test für MOV W,#lit Instruction (0xC0xx) mit explizitem Debugging des Opcode-Extraktions
+// Test für MOV W,#lit Instruction mit explizitem Debugging des Opcode-Extraktions
 TEST_F(CpuTest, ExecuteMovWLitInstructionWithOpcodeCheck) {
     // Setze PC auf 0
     USHORT* pc = cpu->getPC();
     *pc = 0;
     
     // MOV W,#42 - Lade die Konstante 42 in W
-    // 0xC02A entspricht dem Opcode 1100 0000 0010 1010
-    // Die höchsten 4 Bits (1100) = 0xC
-    USHORT instruction = 0xC02A;
+    // 0xC2A entspricht dem Opcode 1100 0010 1010
+    // Die höchsten 4 Bits der 12 Bit (1100) = 0xC
+    USHORT instruction = 0xC2A;
     setRomValue(0, instruction);
     
     // Führe eine Manuellen Test des Opcode-Extraktionsprozesses durch
     USHORT mne = instruction;
-    USHORT opcode = (mne >> 12) & 0xF;
+    USHORT opcode = (mne >> 8) & 0xF;
     
     // Überprüfe, ob der extrahierte Opcode dem erwarteten Wert entspricht
     EXPECT_EQ(opcode, 0xC) << "Der extrahierte Opcode sollte 0xC sein, ist aber " << opcode;
@@ -313,4 +313,68 @@ TEST_F(CpuCycleTest, ClrbOnPortTakesOneCycle) {
 
 TEST_F(CpuCycleTest, JumpTakesThreeCycles) {
     EXPECT_EQ(3, cyclesOf(0xa00 | 0x10));
+}
+
+// Cycle counts of the instruction families, from the SX52 instruction set
+// table in the user guide (appendix A). Skipping instructions take one more
+// cycle when they skip.
+TEST_F(CpuCycleTest, InstructionFamiliesMatchTheInstructionSetTable) {
+    const int F = 0x0c;  // a plain register
+    struct Case {
+        const char* name;
+        USHORT opcode;
+        unsigned char registerValue;
+        int cycles;
+    };
+    const Case cases[] = {
+        {"nop", 0x000, 0, 1},
+        {"mov !option,w", 0x002, 0, 1},
+        {"clr !wdt", 0x004, 0, 1},
+        {"mov !ra,w", 0x005, 0, 1},
+        {"page", 0x011, 0, 1},
+        {"bank", 0x019, 0, 1},
+        {"clr w", 0x040, 0, 1},
+        {"mov w,m", 0x042, 0, 1},
+        {"mov m,w", 0x043, 0, 1},
+        {"mode #lit", 0x055, 0, 1},
+        {"mov fr,w", 0x020 | F, 0, 1},
+        {"clr fr", 0x060 | F, 0, 1},
+        {"sub fr,w", 0x0a0 | F, 0, 1},
+        {"mov w,fr-w", 0x080 | F, 0, 1},
+        {"dec fr", 0x0e0 | F, 0, 1},
+        {"inc fr", 0x2a0 | F, 0, 1},
+        {"or w,fr", 0x100 | F, 0, 1},
+        {"and fr,w", 0x160 | F, 0, 1},
+        {"xor fr,w", 0x1a0 | F, 0, 1},
+        {"add w,fr", 0x1c0 | F, 0, 1},
+        {"add fr,w", 0x1e0 | F, 0, 1},
+        {"mov w,fr", 0x200 | F, 0, 1},
+        {"test fr", 0x220 | F, 0, 1},
+        {"not fr", 0x260 | F, 0, 1},
+        {"rr fr", 0x320 | F, 0, 1},
+        {"rl fr", 0x360 | F, 0, 1},
+        {"swap fr", 0x3a0 | F, 0, 1},
+        {"mov w,#lit", 0xc05, 0, 1},
+        {"and w,#lit", 0xe05, 0, 1},
+        {"setb fr.1", 0x520 | F, 0, 1},
+        {"clrb fr.1", 0x420 | F, 0, 1},
+        {"decsz without skip", 0x2e0 | F, 5, 1},
+        {"decsz with skip", 0x2e0 | F, 1, 2},
+        {"incsz without skip", 0x3e0 | F, 5, 1},
+        {"incsz with skip", 0x3e0 | F, 0xff, 2},
+        {"movsz w,--fr without skip", 0x2c0 | F, 5, 1},
+        {"movsz w,--fr with skip", 0x2c0 | F, 1, 2},
+        {"movsz w,++fr without skip", 0x3c0 | F, 5, 1},
+        {"movsz w,++fr with skip", 0x3c0 | F, 0xff, 2},
+        {"sb without skip", 0x720 | F, 0x00, 1},
+        {"sb with skip", 0x720 | F, 0x02, 2},
+        {"snb without skip", 0x620 | F, 0x02, 1},
+        {"snb with skip", 0x620 | F, 0x00, 2},
+        {"call", 0x910, 0, 3},
+    };
+    for (const Case& c : cases) {
+        SCOPED_TRACE(c.name);
+        cpu->getRAM()[F] = c.registerValue;
+        EXPECT_EQ(c.cycles, cyclesOf(c.opcode));
+    }
 }

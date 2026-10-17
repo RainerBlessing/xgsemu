@@ -927,7 +927,6 @@ void Cpu::execute ()
 							pc++;	//skip if page/bank
 							cycle++;
 						}
-						cycle++;
 					}
 					else
 				{
