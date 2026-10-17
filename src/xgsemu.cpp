@@ -172,7 +172,13 @@ void XGSEmu::openAudio() {
     wanted.freq = audioSampleRate;
     wanted.format = AUDIO_S16SYS;
     wanted.channels = 1;
+#ifdef __EMSCRIPTEN__
+    // Emulation and audio share one thread in the browser. A bigger buffer
+    // (about 93 ms) survives frames that take longer than 1024 samples (23 ms).
+    wanted.samples = 4096;
+#else
     wanted.samples = 1024;
+#endif
     wanted.callback = audioCallback;
     wanted.userdata = this;
 
@@ -338,7 +344,17 @@ void XGSEmu::frame() {
         if (cpu != nullptr) {
             cpu->runCycles(CYCLES_PER_FRAME);
             ran = true;
+            emulatedFrames++;
         }
+    }
+    if (now - lastSpeedReportMs >= 1000) {
+        if (cpu != nullptr) {
+            // emulated frames per second: 60 means full speed
+            double fps = emulatedFrames * 1000.0 / (now - lastSpeedReportMs);
+            EM_ASM({ if (Module.onSpeed) Module.onSpeed($0); }, fps);
+        }
+        emulatedFrames = 0;
+        lastSpeedReportMs = now;
     }
     if (ran) {
         if (joystickr) {

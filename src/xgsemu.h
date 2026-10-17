@@ -100,6 +100,8 @@ private:
 #ifdef __EMSCRIPTEN__
     double lastFrameMs = 0;
     double frameDebtMs = 0;
+    double lastSpeedReportMs = 0;
+    int emulatedFrames = 0;
 #endif
     // The speed of the SX52 is given by the clock cycles, not by the number of
     // instructions (jmp and call take 3 cycles, iread 4).

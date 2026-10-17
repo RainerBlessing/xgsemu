@@ -72,7 +72,7 @@
     </table>
     <p>There is no separate start button: the XGameStation has an Atari-style joystick with a single fire button, so games that say "Push start button" are started with Space or Ctrl (or the FIRE button on a touch screen). On a Mac, Ctrl+arrow keys may switch desktops, so use Space to fire. For full screen use the button above.</p>
   </section>
-  <p class="hint" id="version"></p>
+  <p class="hint"><span id="version"></span><span id="speed"></span></p>
 </main>
 <script>
   var $ = function (id) { return document.getElementById(id); };
@@ -82,6 +82,10 @@
     print: function (t) { console.log(t); },
     printErr: function (t) { console.warn(t); },
     setStatus: function (t) { statusEl.textContent = t; },
+    onSpeed: function (fps) {
+      var f = Math.round(fps);
+      $('speed').textContent = ' · ' + f + ' fps' + (f < 55 ? ' (too slow: sound may crackle)' : '');
+    },
     onEmulatorReady: function () {
       var names = Module.FS.readdir('/examples').filter(function (n) { return /\.(hex|obj)$/i.test(n); }).sort();
       var sel = $('examples');
