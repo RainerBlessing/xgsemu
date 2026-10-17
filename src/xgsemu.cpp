@@ -48,6 +48,9 @@ extern "C" EMSCRIPTEN_KEEPALIVE void xgsLoad(const char* path) {
         webEmu->loadHexFile(path);
     }
 }
+extern "C" EMSCRIPTEN_KEEPALIVE const char* xgsVersion() {
+    return XGSE_VERSION;
+}
 extern "C" EMSCRIPTEN_KEEPALIVE void xgsMute(int muted) {
     if (webEmu != NULL) {
         webEmu->setMuted(muted != 0);

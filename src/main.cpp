@@ -27,7 +27,10 @@
 #include <unistd.h>
 #include "xgsemu.h"
 
-#define XGSE_VERSION "0.07"
+// The version comes from project() in CMakeLists.txt
+#ifndef XGSE_VERSION
+#define XGSE_VERSION "unknown"
+#endif
 
 // Find application path (simplified version of wxFindAppPath)
 std::string findAppPath(const char* argv0) {

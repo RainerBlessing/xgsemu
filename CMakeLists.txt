@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(xgsemu VERSION 0.6.0)
+project(xgsemu VERSION 0.1.1)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -72,7 +72,7 @@ endif()
 
 # Define preprocessor macros
 target_compile_definitions(xgsemu PRIVATE 
-    XGSE_VERSION="0.07"
+    XGSE_VERSION="${PROJECT_VERSION}"
 )
 
 # Füge NDEBUG nur für Release-Builds hinzu
@@ -91,7 +91,7 @@ if(EMSCRIPTEN)
         --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/examples@/examples
         -sALLOW_MEMORY_GROWTH=1
         -sEXPORTED_RUNTIME_METHODS=ccall,FS
-        -sEXPORTED_FUNCTIONS=_main,_xgsLoad,_xgsReset,_xgsMute
+        -sEXPORTED_FUNCTIONS=_main,_xgsLoad,_xgsReset,_xgsMute,_xgsVersion
     )
 endif()
 

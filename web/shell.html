@@ -52,6 +52,7 @@
     </table>
     <p>On a Mac, Ctrl+arrow keys may switch desktops, so use Space to fire. For full screen use the button above.</p>
   </section>
+  <p class="hint" id="version"></p>
 </main>
 <script>
   var $ = function (id) { return document.getElementById(id); };
@@ -68,6 +69,7 @@
       ['examples', 'loadExample', 'loadFile', 'reset'].forEach(function (id) { $(id).disabled = false; });
       statusEl.textContent = '';
       setMuted(muted);
+      $('version').textContent = 'XGSEmu ' + Module.ccall('xgsVersion', 'string', [], []);
       var def = names.indexOf('ms_pac_man.hex');
       if (def >= 0) sel.selectedIndex = def;
       runExample();
