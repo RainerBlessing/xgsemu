@@ -712,6 +712,26 @@ TEST_F(CpuResultTest, PageAndBankInstructionsSelectPageAndBank) {
     EXPECT_EQ(0x3a, ram[4]);
 }
 
+// "bank" sets bits 6:4 of FSR. Bit 7 selects the upper or lower half of the banks and is set
+// with setb FSR.7 (data sheet 5.2.2), the low nibble is not touched either.
+TEST_F(CpuResultTest, BankKeepsTheUpperBlockBitOfFsr) {
+    unsigned char* ram = cpu->getRAM();
+    ram[4] = 0x8a;
+    *cpu->getPC() = 0x100;
+    setRomValue(0x100, 0x01a);          // bank 2
+    cpu->execute();
+    EXPECT_EQ(0xaa, ram[4]);
+}
+
+TEST_F(CpuResultTest, BankReplacesTheOldBankNumber) {
+    unsigned char* ram = cpu->getRAM();
+    ram[4] = 0x7f;
+    *cpu->getPC() = 0x100;
+    setRomValue(0x100, 0x019);          // bank 1
+    cpu->execute();
+    EXPECT_EQ(0x1f, ram[4]);
+}
+
 TEST_F(CpuResultTest, IreadReadsTheProgramMemoryAt_M_W) {
     unsigned char* ram = cpu->getRAM();
     *cpu->getPC() = 0x100;

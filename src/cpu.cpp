@@ -720,7 +720,7 @@ void Cpu::controlInstruction(USHORT mne)
 	}
 	else if (mne >> 3 == 3)
 	{ //bank addr12 0000 0001 1nnn
-		*fsr = ((mne & 7) << 4) | (*fsr & 0xf);
+		*fsr = (*fsr & 0x8f) | ((mne & 7) << 4); // bits 6:4, bit 7 selects the block of banks
 	}
 	else if (mne >> 3 == 2)
 	{ //page addr12 0000 0001 0nnn
