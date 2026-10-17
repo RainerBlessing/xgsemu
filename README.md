@@ -65,7 +65,6 @@ So:
 - CMake 3.10 or later
 - A C++ compiler with C++11 support
 - SDL2
-- wxWidgets 3.x (components `core`, `base` and `html`; 3.2 with GTK3 was used)
 - Git and a network connection when the tests are built (CMake downloads
   GoogleTest), or switch the tests off with `-DBUILD_TESTS=OFF`
 

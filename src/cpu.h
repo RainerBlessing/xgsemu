@@ -67,7 +67,7 @@ public:
 	void reset();
 
 	/**
-	 * The joystick input is handled in the sdlpanel class.
+	 * The joystick input is handled in XGSEmu::handleEvents().
 	               * The values are written to that "register"
 	 * @return 
 	 */

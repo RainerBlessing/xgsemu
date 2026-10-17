@@ -12,9 +12,6 @@ pkgs.mkShell {
     SDL2
     SDL2_image
     
-    # wxWidgets (direkt referenziert)
-    wxGTK32
-    
     # GTK und GSettings-Schemas für GIO
     gsettings-desktop-schemas
     gtk3
@@ -47,7 +44,6 @@ pkgs.mkShell {
     echo "========================================"
     echo "Verfügbare Bibliotheken:"
     echo "- SDL2 $(${pkgs.SDL2.dev}/bin/sdl-config --version)"
-    echo "- wxWidgets $(${pkgs.wxGTK32}/bin/wx-config --version 2>/dev/null || echo 'nicht gefunden')"
     echo ""
     echo "Zum Bauen des Projekts:"
     echo "mkdir -p build && cd build && cmake .. && make"
@@ -61,7 +57,6 @@ pkgs.mkShell {
   LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
     pkgs.SDL2
     pkgs.SDL2_image
-    pkgs.wxGTK32
     pkgs.gtk3
     pkgs.gsettings-desktop-schemas
   ];

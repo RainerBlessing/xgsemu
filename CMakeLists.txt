@@ -14,10 +14,9 @@ endif()
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release)
 
 # Compiler flags basierend auf Build-Typ
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive -Wno-write-strings ${WX_CFLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive -Wno-write-strings")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0 -DDEBUG")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
-#set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${WX_LIBS}")
 
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "C++ Flags: ${CMAKE_CXX_FLAGS}")
@@ -26,21 +25,14 @@ message(STATUS "C++ Release Flags: ${CMAKE_CXX_FLAGS_RELEASE}")
 
 # Find required packages
 find_package(SDL2 REQUIRED)
-find_package(wxWidgets REQUIRED COMPONENTS core base html)
 
 # Debug-Ausgaben
 message(STATUS "SDL2 Include dirs: ${SDL2_INCLUDE_DIRS}")
 message(STATUS "SDL2 Libraries: ${SDL2_LIBRARIES}")
-message(STATUS "wxWidgets Include dirs: ${wxWidgets_INCLUDE_DIRS}")
-message(STATUS "wxWidgets Libraries: ${wxWidgets_LIBRARIES}")
 message(STATUS "Build directory: ${CMAKE_BINARY_DIR}")
 
 # Include directories
 include_directories(${SDL2_INCLUDE_DIRS})
-include_directories(${wxWidgets_INCLUDE_DIRS})
-
-# Add wxWidgets definitions and flags
-include(${wxWidgets_USE_FILE})
 
 # Source files - nur aus src/ Verzeichnis
 file(GLOB SOURCES
@@ -56,7 +48,7 @@ file(GLOB HEADERS
 add_executable(xgsemu ${SOURCES} ${HEADERS})
 
 # Link with libraries
-target_link_libraries(xgsemu ${SDL2_LIBRARIES} ${wxWidgets_LIBRARIES})
+target_link_libraries(xgsemu ${SDL2_LIBRARIES})
 
 # On Unix-like systems (Linux, macOS), we may need to link with additional libraries
 if(UNIX)
@@ -66,7 +58,6 @@ if(UNIX)
     target_compile_definitions(xgsemu PRIVATE
         _LARGE_FILES
         _FILE_OFFSET_BITS=64
-        __WXGTK__
     )
 endif()
 
@@ -133,6 +124,9 @@ endif()
 # Option für Unit Tests
 option(BUILD_TESTS "Build the unit tests" ON)
 
+# Ohne enable_testing() kennt ctest die per gtest_discover_tests gefundenen Tests nicht.
+enable_testing()
+
 if(BUILD_TESTS)
     # Sammle alle Testquellen ein
     file(GLOB TEST_SOURCES "tests/*.cpp")
@@ -151,7 +145,7 @@ if(BUILD_TESTS)
 
         # Bibliothek aus deinem Projekt
         add_library(xgsemu_lib STATIC ${SOURCES})
-        target_link_libraries(xgsemu_lib ${SDL2_LIBRARIES} ${wxWidgets_LIBRARIES})
+        target_link_libraries(xgsemu_lib ${SDL2_LIBRARIES})
         if(UNIX)
           target_link_libraries(xgsemu_lib pthread)
         endif()
@@ -167,15 +161,14 @@ if(BUILD_TESTS)
         target_include_directories(unit_tests PRIVATE 
             ${CMAKE_CURRENT_SOURCE_DIR}/src
             ${SDL2_INCLUDE_DIRS}
-            ${wxWidgets_INCLUDE_DIRS}
         )
 
         # GTest-Integration
         include(GoogleTest)
         gtest_discover_tests(unit_tests)
 
-        # Optional bequemes Test-Target
-        add_custom_target(test
+        # Optional bequemes Test-Target ("test" ist mit enable_testing() reserviert)
+        add_custom_target(run_tests
             COMMAND unit_tests
             DEPENDS unit_tests
         )
