@@ -23,8 +23,9 @@ Nebenwirkung.
 (`tests/reference/`) läuft im Test neben der echten CPU. Verglichen wird der
 komplette Zustand nach jedem Befehl.
 **Tests**: Alle 4096 Opcodes mit Zufallszuständen, außerdem die 17 Beispielprogramme
-über mehrere Frames (Zustand und Videofragmente).
-**Status**: Not Started
+über mehrere Frames (Zustand, Videofragmente, Bild, SRAM, Soundchip).
+Gegenprobe: 6 absichtlich eingebaute Fehler in `cpu.cpp` wurden alle gefunden.
+**Status**: Complete
 
 ## Stage 2: Umbau
 **Goal**: `execute` in kleine Funktionen zerlegen (Decode, Adressierung, ALU,

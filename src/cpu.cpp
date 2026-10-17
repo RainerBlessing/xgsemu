@@ -53,6 +53,7 @@ void Cpu::reset()
 {
 	memset (RAM, 0, 262);
 	memset (Tris, 0, sizeof(Tris));
+	memset (Stack, 0, sizeof(Stack));
 	mode = 0;
 	option = 0;
 	memset (SRAM, 0, 131072*sizeof(unsigned char));
