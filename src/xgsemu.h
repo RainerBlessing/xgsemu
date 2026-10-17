@@ -45,6 +45,7 @@ public:
     void reset();
     void toggleFullscreen();
     void setMuted(bool muted);
+    void setJoystick(Uint16 mask, bool down);
 #ifdef __EMSCRIPTEN__
     void frame();
 #endif

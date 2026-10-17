@@ -15,6 +15,18 @@
   button { cursor:pointer; }
   #stage { background:#000; border-radius:6px; line-height:0; }
   canvas { width:100%; height:auto; aspect-ratio:4/3; display:block; image-rendering:auto; outline:none; }
+  .touchhelp { display:none; }
+  @media (pointer: coarse) { .touchhelp { display:block; } }
+  #stage { position:relative; }
+  #touch { display:none; line-height:normal; justify-content:space-between; align-items:center; padding:14px 18px 18px; user-select:none; -webkit-user-select:none; }
+  @media (pointer: coarse) { #touch { display:flex; } }
+  #pad, #fire { touch-action:none; -webkit-tap-highlight-color:transparent; border:2px solid var(--line); background:rgba(128,128,128,.25); color:#ddd; }
+  #pad { position:relative; width:150px; height:150px; border-radius:50%; }
+  #knob { position:absolute; left:50%; top:50%; width:56px; height:56px; margin:-28px 0 0 -28px; border-radius:50%; background:rgba(200,200,200,.55); pointer-events:none; }
+  #fire { width:104px; height:104px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; letter-spacing:.05em; }
+  #fire.on, #pad.on { background:rgba(220,60,200,.55); }
+  #stage:fullscreen #touch { position:absolute; left:0; right:0; bottom:0; opacity:.6; pointer-events:none; }
+  #stage:fullscreen #pad, #stage:fullscreen #fire { pointer-events:auto; }
   #stage:fullscreen { display:flex; align-items:center; justify-content:center; width:100vw; height:100vh; border-radius:0; }
   #stage:fullscreen canvas { width:min(100vw, calc(100vh * 4 / 3)); height:auto; }
   p.hint { color:var(--muted); font-size:.9rem; }
@@ -39,9 +51,15 @@
     <input id="file" type="file" accept=".hex,.obj" hidden>
     <span id="status">Loading…</span>
   </div>
-  <div id="stage"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas></div>
+  <div id="stage"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+    <div id="touch" aria-label="Touch controls">
+      <div id="pad" aria-label="Joystick"><div id="knob"></div></div>
+      <div id="fire" aria-label="Fire button">FIRE</div>
+    </div>
+  </div>
   <section class="help">
     <h2>How to play</h2>
+    <p class="touchhelp">On a phone or tablet the round pad under the picture is the joystick (diagonals work) and the FIRE button is the fire button.</p>
     <p>Pick a program from the list, or load your own <code>.hex</code> / <code>.obj</code> file for the XGameStation Micro Edition. Click the picture once so the page receives your keystrokes and the browser allows sound.</p>
     <table>
       <tr><th>Key</th><th>Joystick</th></tr>
@@ -107,6 +125,48 @@
     reader.readAsArrayBuffer(f);
     this.value = '';
   };
+  // on-screen joystick and fire button (shown by CSS on touch devices)
+  var UP = 1, DOWN = 2, LEFT = 4, RIGHT = 8, FIRE = 16;
+  var joy = 0;
+  function setJoy(mask) {
+    if (mask === joy) return;
+    var changed = mask ^ joy;
+    [UP, DOWN, LEFT, RIGHT, FIRE].forEach(function (bit) {
+      if (changed & bit) Module.ccall('xgsJoystick', null, ['number', 'number'], [bit, (mask & bit) ? 1 : 0]);
+    });
+    joy = mask;
+  }
+  function holdButton(el, bit) {
+    function press(e) { e.preventDefault(); try { el.setPointerCapture(e.pointerId); } catch (x) {} el.classList.add('on'); setJoy(joy | bit); }
+    function release() { el.classList.remove('on'); setJoy(joy & ~bit); }
+    el.addEventListener('pointerdown', press);
+    el.addEventListener('pointerup', release);
+    el.addEventListener('pointercancel', release);
+  }
+  holdButton($('fire'), FIRE);
+  (function () {
+    var pad = $('pad'), knob = $('knob');
+    function steer(e) {
+      var r = pad.getBoundingClientRect();
+      var dx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
+      var dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
+      var len = Math.sqrt(dx * dx + dy * dy);
+      if (len > 1) { dx /= len; dy /= len; }
+      knob.style.transform = 'translate(' + dx * 45 + 'px,' + dy * 45 + 'px)';
+      var dead = 0.3, m = joy & FIRE;
+      if (dy < -dead) m |= UP;
+      if (dy > dead) m |= DOWN;
+      if (dx < -dead) m |= LEFT;
+      if (dx > dead) m |= RIGHT;
+      setJoy(m);
+    }
+    function release() { pad.classList.remove('on'); knob.style.transform = ''; setJoy(joy & FIRE); }
+    pad.addEventListener('pointerdown', function (e) { e.preventDefault(); try { pad.setPointerCapture(e.pointerId); } catch (x) {} pad.classList.add('on'); steer(e); });
+    pad.addEventListener('pointermove', function (e) { if (pad.classList.contains('on')) steer(e); });
+    pad.addEventListener('pointerup', release);
+    pad.addEventListener('pointercancel', release);
+  })();
+  if (!document.fullscreenEnabled) $('fs').hidden = true;
   // keep the page from scrolling / the browser from reacting to the game keys
   window.addEventListener('keydown', function (e) {
     if (e.target.tagName === 'SELECT') return;

@@ -56,6 +56,13 @@ extern "C" EMSCRIPTEN_KEEPALIVE void xgsMute(int muted) {
         webEmu->setMuted(muted != 0);
     }
 }
+// The on-screen controls of the page press and release joystick bits
+// (1 up, 2 down, 4 left, 8 right, 0x10 fire), like the keys do.
+extern "C" EMSCRIPTEN_KEEPALIVE void xgsJoystick(int mask, int down) {
+    if (webEmu != NULL) {
+        webEmu->setJoystick(mask, down != 0);
+    }
+}
 extern "C" EMSCRIPTEN_KEEPALIVE void xgsReset() {
     if (webEmu != NULL) {
         webEmu->reset();
@@ -176,6 +183,16 @@ void XGSEmu::openAudio() {
     }
     audioSampleRate = obtained.freq;
     SDL_PauseAudioDevice(audioDevice, 0);
+}
+
+void XGSEmu::setJoystick(Uint16 mask, bool down) {
+    if (joystickr) {
+        if (down) {
+            *joystickr |= mask;
+        } else {
+            *joystickr &= ~mask;
+        }
+    }
 }
 
 void XGSEmu::setMuted(bool muted) {
