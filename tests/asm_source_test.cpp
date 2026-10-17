@@ -381,3 +381,11 @@ TEST_F(AssembleSourceTest, CodeRunningIntoTheResetVectorIsAnError) {
 TEST_F(AssembleSourceTest, NeighbouringCodeIsFine) {
     ASSERT_TRUE(assembleText("org 10\nnop\norg 11\nnop\n")) << error;
 }
+
+TEST_F(AssembleSourceTest, IndfIsRegisterZero) {
+    ASSERT_TRUE(assembleText("mov w, indf\nmov indf, w\ninc indf\nsnb indf.3\n")) << error;
+    EXPECT_EQ(0x200, rom[0]);
+    EXPECT_EQ(0x020, rom[1]);
+    EXPECT_EQ(0x2a0, rom[2]);
+    EXPECT_EQ(0x660, rom[3]);
+}

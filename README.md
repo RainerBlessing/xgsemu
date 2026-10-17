@@ -236,7 +236,7 @@ table:  dw 123, start       ; raw 12 bit words
 | `firsthalf` | Moves on to the start of the next page if the address is in the second half of a page, because a `call` reaches only the first half. |
 | `autopage on` / `autopage off` | Puts `page n` in front of every `jmp` and `call` to a label on another page, until switched off. Off at the start. |
 
-The registers have names: `rtcc`, `pc`, `status`, `fsr` and `ra` to `re`. `w`, `m`,
+The registers have names: `indf`, `rtcc`, `pc`, `status`, `fsr` and `ra` to `re`. `w`, `m`,
 `option` and `wdt` are reserved, names are case sensitive and can only be defined
 once. A name wins over a number spelled the same, so do not call a label `a` or
 `ff`.
