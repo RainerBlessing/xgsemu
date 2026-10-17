@@ -187,7 +187,11 @@ if(BUILD_TESTS)
         target_link_libraries(unit_tests gtest gtest_main xgsemu_lib)
         target_compile_definitions(unit_tests PRIVATE
             EXAMPLES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/examples"
+            SXASM_PATH="$<TARGET_FILE:sxasm>"
+            SXDIS_PATH="$<TARGET_FILE:sxdis>"
         )
+        # the tools tests start the programs
+        add_dependencies(unit_tests sxasm sxdis)
 
         # Include‐Pfad anpassen
         target_include_directories(unit_tests PRIVATE 
