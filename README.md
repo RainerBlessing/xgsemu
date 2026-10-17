@@ -194,11 +194,16 @@ version):
 ```bash
 ./sxasm game.asm game.hex       # assemble
 ./sxdis game.hex                # list the programmed ROM words
+./sxdis -n game.hex             # the same, without labels
 ./xgsemu game.hex
 ```
 
 `sxdis` prints `address: opcode  instruction` for every word that is not empty
 (`0xFFF`). It cannot tell code from data, so a table shows up as instructions.
+The targets of `jmp` and `call` get a label (`L` and the address, e.g. `L237:`),
+so `jmp 37` after a `page 1` reads `jmp L237`. The page is the one set by the
+`page` instruction in front of the jump, otherwise the page the jump stands in.
+A target that holds no code stays a number. With `-n` there are no labels.
 
 The source has one instruction per line, in the notation `sxdis` writes. Numbers
 are hexadecimal (`0x` is allowed), case and blanks do not matter and `;` starts a

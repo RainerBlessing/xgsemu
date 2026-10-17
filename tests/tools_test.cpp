@@ -84,7 +84,7 @@ TEST_F(ToolsTest, AssembledProgramIsListedAsWritten) {
     Result assembled = run(sxasm(quoted(dir + "/small.asm") + " " + quoted(dir + "/small.hex")));
     ASSERT_EQ(0, assembled.exitCode) << assembled.output;
 
-    Result listing = run(sxdis(quoted(dir + "/small.hex")));
+    Result listing = run(sxdis("-n " + quoted(dir + "/small.hex")));
     EXPECT_EQ(0, listing.exitCode);
     EXPECT_EQ(
         "000: c05  mov w, #5\n"
@@ -116,19 +116,70 @@ TEST_F(ToolsTest, MissingHexFileFails) {
     EXPECT_EQ(1, run(sxdis(quoted(dir + "/missing.hex"))).exitCode);
 }
 
+TEST_F(ToolsTest, TargetsOfJumpsAreShownAsLabels) {
+    writeFile(dir + "/small.asm",
+        "start:  mov w, #5\n"
+        "        mov 10, w\n"
+        "loop:   decsz 10\n"
+        "        jmp loop\n"
+        "        jmp start\n");
+    ASSERT_EQ(0, run(sxasm(quoted(dir + "/small.asm") + " " + quoted(dir + "/small.hex"))).exitCode);
+
+    Result listing = run(sxdis(quoted(dir + "/small.hex")));
+    EXPECT_EQ(0, listing.exitCode);
+    EXPECT_EQ(
+        "L000:\n"
+        "000: c05  mov w, #5\n"
+        "001: 030  mov 10, w\n"
+        "L002:\n"
+        "002: 2f0  decsz 10\n"
+        "003: a02  jmp L002\n"
+        "004: a00  jmp L000\n",
+        listing.output);
+}
+
+TEST_F(ToolsTest, LabelsFollowThePageInstruction) {
+    writeFile(dir + "/far.asm", "autopage on\ncall sub\njmp far\norg 200\nsub: ret\nfar: nop\n");
+    ASSERT_EQ(0, run(sxasm(quoted(dir + "/far.asm") + " " + quoted(dir + "/far.hex"))).exitCode);
+
+    Result listing = run(sxdis(quoted(dir + "/far.hex")));
+    EXPECT_EQ(
+        "000: 011  page 1\n"
+        "001: 900  call L200\n"
+        "002: 011  page 1\n"
+        "003: a01  jmp L201\n"
+        "L200:\n"
+        "200: 00c  ret\n"
+        "L201:\n"
+        "201: 000  nop\n",
+        listing.output);
+}
+
+TEST_F(ToolsTest, TargetWithoutCodeStaysANumber) {
+    writeFile(dir + "/empty.asm", "jmp 5\n");
+    ASSERT_EQ(0, run(sxasm(quoted(dir + "/empty.asm") + " " + quoted(dir + "/empty.hex"))).exitCode);
+
+    Result listing = run(sxdis(quoted(dir + "/empty.hex")));
+    EXPECT_EQ("000: a05  jmp 5\n", listing.output);
+}
+
+TEST_F(ToolsTest, UnknownOptionShowsTheUsage) {
+    EXPECT_EQ(2, run(sxdis("-x " + quoted(dir + "/small.hex"))).exitCode);
+}
+
 // A real program survives listing, assembling and listing again.
 class ToolsExampleTest : public ToolsTest, public ::testing::WithParamInterface<const char*> {};
 
 TEST_P(ToolsExampleTest, ListingOfTheAssembledListingIsTheSame) {
     std::string original = std::string(EXAMPLES_DIR) + "/" + GetParam();
-    Result first = run(sxdis(quoted(original)));
+    Result first = run(sxdis("-n " + quoted(original)));
     ASSERT_EQ(0, first.exitCode);
 
     writeFile(dir + "/round.asm", listingToSource(first.output));
     Result assembled = run(sxasm(quoted(dir + "/round.asm") + " " + quoted(dir + "/round.hex")));
     ASSERT_EQ(0, assembled.exitCode) << assembled.output;
 
-    Result second = run(sxdis(quoted(dir + "/round.hex")));
+    Result second = run(sxdis("-n " + quoted(dir + "/round.hex")));
     ASSERT_EQ(0, second.exitCode);
 
     // the words without source are left out of the second listing
