@@ -364,770 +364,352 @@ void Cpu::sb(USHORT mne)
 	next();
 }
 
-// Everything that has a register as operand and the special instructions.
+// Instructions with a register operand, selected by the upper seven bits of
+// the 12 bit instruction (the lowest of them is the destination bit). What
+// is not in the table are the special instructions.
 void Cpu::registerInstruction(USHORT mne)
 {
-	USHORT fr;
-	USHORT a;
-	USHORT bit;
-	switch (mne >> 5)
-{
-	case 0x1:    //mov fr,w 0000 001f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-		RAM[fr] = *w;
-		cycle++;
-		pc++;
-		switch (fr - 5)
-		{
-			case 0:
-				joystick();
-				break;
-			case 4:
-				video->changeVideo(cycle, (unsigned char)*w&0xff);
-				break;
-			default:
-				break;
-		}
-		return;
-	case 0xf:    //add fr,w 0001 111f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		if (RAM[fr] < 0x10 && (*w) + RAM[fr] > 0xf)
-		{
-			*status |= 1 << 1;	//set DC
-		}
-		else
-	{
-			*status &= ~(1 << 1);
-		}
-		if (fr != 2)
-			a = RAM[fr] + *w;
-		else
-			a = pc + *w;
-		// jmp PC+W: only the low byte of the program counter takes part
-		// in the addition, so the carry is normally cleared.
-		if ((fr != 2 ? a : ((pc + 1) & 0xff) + *w) > 0xff)
-			*status |= 1;	//set carry
-		else
-		{
-			*status &= ~1;
-		}
-
-		if (fr != 2)
-			RAM[fr] = a & 0xff;
-		else
-			pc = a;
-
-
-		if (a == 0)
-			*status |= 1 << 2;	// set zero
-		else
-		{
-			*status &= ~(1 << 2);
-		}
-		cycle += (fr == 2) ? 3 : 1;	// jmp PC+W takes 3 cycles
-		pc++;
-		return;
-	case 0xe:    //add w,fr 0001 110f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		if (*w < 0x10 && (*w) + RAM[fr] > 0xf)
-			*status |= 1 << 1;	//set DC
-		else
-		{
-			*status &= ~( 1 << 1);
-		}
-		a = *w + RAM[fr];
-		if (a > 0xff)
-			*status |= 1;	//set carry
-		else
-		{
-			*status &= ~1;
-		}
-		*w = a & 0xff;
-
-		if (*w == 0)
-			*status |= 1 << 2;	// set zero
-		else
-		{
-			*status &= ~(1 << 2);
-		}
-		cycle++;
-		pc++;
-		return;
-	case 0xb:    //and fr,w 0001 011f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		RAM[fr] = RAM[fr] & *w;
-		if (RAM[fr] == 0)
-			*status |= 1 << 2;
-		else
-		{
-			*status &= ~(1 << 2);
-		}
-		cycle++;
-		pc++;
-		return;
-	case 0xa:    //and w,fr 0001 010f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		*w = *w & RAM[fr];
-		if (*w == 0)
-			*status |= 1 << 2;
-		else
-		{
-			*status &= ~(1 << 2);
-		}
-		cycle++;
-		pc++;
-		return;
-	case 0x13:    //not fr 0010 011f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		RAM[fr] = ~RAM[fr];
-		if (RAM[fr] == 0)
-			*status |= 1 << 2;
-		else
-		{
-			*status &= ~(1 << 2);
-		}
-		cycle++;
-
-		pc++;
-		return;
-	case 0x9:    				//or fr,w 0001 001f fff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		RAM[fr] |= *w;
-		if (RAM[fr] == 0)
-			*status |= 1 << 2;
-		else
-		{
-			*status &= ~(1 << 2);
-		}
-		cycle++;
-		pc++;
-		return;
-	case 0x8:    //or w,fr 0001 000f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		*w |= RAM[fr];
-		if (*w == 0)
-			*status = 1 << 2;
-		else
-		{
-			*status &= ~(1 << 2);
-		}
-		cycle++;
-		pc++;
-		return;
-	case 0xd:    			//xor fr,w 0001 101f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		RAM[fr] ^= *w;
-		if (RAM[fr] == 0)
-			*status |= 1 << 2;
-		else
-		{
-			*status &= ~(1 << 2);
-		}
-		cycle++;
-		pc++;
-		return;
-	case 0xc:    //xor w,fr 0001 100f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		*w ^= RAM[fr];
-		if (*w == 0)
-			*status |= 1 << 2;
-		else
-		{
-			*status &= ~(1 << 2);
-		}
-		cycle++;
-		pc++;
-		return;
-	case 0x3:    		//clr fr 0000 011f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		RAM[fr] = 0;
-		// the same side effects as mov fr,w
-		switch (fr - 5)
-		{
-			case 0:
-				joystick();
-				break;
-			case 4:
-				video->changeVideo(cycle, 0);
-				break;
-			default:
-				break;
-		}
-		*status |= 1 << 2;
-		cycle++;
-		pc++;
-		return;
-	case 0x7:    			//dec fr 0000 111f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		RAM[fr] -= 1;
-		if (RAM[fr] == 0)
-			*status |= 1 << 2;
-		else
-		{
-			*status &= ~(1 << 2);
-		}
-		switch (fr - 5)
-		{
-			case 0:
-				joystick();
-				break;
-			case 4:
-				video->changeVideo(cycle, (unsigned char)RAM[fr]&0xff);
-				break;
-			default:
-				break;
-		}
-		cycle++;
-		pc++;
-		return;
-	case 0x17:    			//decsz fr 0010 111f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		RAM[fr] -= 1;
-
-		if (RAM[fr] == 0)
-		{
-			*status |= 1 << 2;
-			pc++;	//skip if fr==0
-			cycle++;
-			while (ROM[pc] >> 3 == 2 || ROM[pc] >> 3 == 3)
-			{
-				pc++;	//skip if page/bank
-				cycle++;
-			}
-		}
-		else
-	{
-			*status &= ~(1 << 2);
-		}
-		cycle++;
-		pc++;
-		return ;
-	case 0x15:    				//inc fr 0010 101f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		RAM[fr] ++;
-		if (RAM[fr] == 0)
-			*status |= 1 << 2;
-		else
-		{
-			*status &= ~(1 << 2);
-		}
-		switch (fr - 5)
-		{
-			case 0:
-				joystick();
-				break;
-			case 4:
-				video->changeVideo(cycle, (unsigned char)RAM[fr]&0xff);
-				break;
-			default:
-				break;
-		}
-		cycle++;
-		pc++;
-		return;
-	case 0x1f:    			//incsz fr 0011 111f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		RAM[fr]++;
-		if (RAM[fr] == 0)
-		{
-			*status |= 1 << 2;
-			pc++;	//skip if fr==0
-			cycle++;
-			while (ROM[pc] >> 3 == 2 || ROM[pc] >> 3 == 3)
-			{
-				pc++;	//skip if page/bank
-				cycle++;
-			}
-		}
-		else
-	{
-			*status &= ~(1 << 2);
-		}
-		cycle++;
-		pc++;
-		return;
-	case 0x1b:    		//RL fr 0011 011f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		if (RAM[fr] >> 7 == 1)
-		{
-			RAM[fr] = (RAM[fr] << 1) | (*status & 1);
-			*status |= 1; //set carry
-		}
-		else
-	{
-			RAM[fr] = (RAM[fr] << 1) | (*status & 1);
-			*status &= ~1;
-		}
-		cycle++;
-		pc++;
-		return;
-	case 0x19:    //RR fr 0011 0001f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		if (RAM[fr]&0x1 == 0x1)
-		{
-			RAM[fr] = (RAM[fr] >> 1) | ((*status & 1) << 7);
-			*status |= 1; //set carry
-		}
-		else
-	{
-			RAM[fr] = (RAM[fr] >> 1) | ((*status & 1) << 7);
-			*status &= ~1;
-		}
-
-		cycle++;
-		pc++;
-		return;
-	case 0x5:    //sub fr,w 0000 101f ffff
-		//TODO: complement of carry flag ...
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		if (RAM[fr] > 0xf && RAM[fr] - *w > 0x10)
-			*status |= 1 << 1;	//set DC
-		else
-		{
-			*status &= ~(1 << 1);
-		}
-		if (RAM[fr] >= *w)
-			*status |= 1;	//set carry
-		else
-		{
-			*status &= ~1;
-		}
-		RAM[fr] -= *w;
-		if (*w == 0)
-			*status |= 1 << 2;	// set zero
-		else
-		{
-			*status &= ~(1 << 2);
-		}
-		cycle++;
-		pc++;
-		return;
-	case 0x1d:    //swap fr 0011 101f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		RAM[fr] = (RAM[fr] >> 4) | ((RAM[fr] & 0xf) << 4);
-		cycle++;
-		pc++;
-		return;
-	case 0x10:    //mov w,fr 0010 000f ffff
-		fr = mne & 0x1f;
-
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		*w = RAM[fr];
-		if (*w == 0)
-		{
-			*status |= 1 << 2;	// set zero
-		}
-		else
-	{
-			*status &= ~(1 << 2);
-		}
-		cycle++;
-		pc++;
-		return;
-	case 0x4:    //mov w,fr-w 0000 100f ffff
-		//TODO: CF, complement, DC...
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		if (RAM[fr] >= *w)
-			*status |= 1;	//set carry
-		else
-		{
-			*status &= ~1;
-		}
-		*w = RAM[fr] - *w;
-		if (*w == 0)
-		{
-			*status |= 1 << 2;	// set zero
-		}
-		else
-	{
-			*status &= ~(1 << 2);
-		}
-		cycle++;
-		pc++;
-		return;
-	case 0x12:    //mov w,/fr (complement) 0010 010f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		*w = ~RAM[fr];
-		if (*w == 0)
-		{
-			*status |= 1 << 2;	// set zero
-		}
-		else
-	{
-			*status &= ~(1 << 2);
-		}
-		cycle++;
-		pc++;
-		return;
-	case 0x6:    //mov w,--fr 0010 100f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		*w = RAM[fr] - 1;
-		if (*w == 0)
-		{
-			*status |= 1 << 2;	// set zero
-		}
-		else
-	{
-			*status &= ~(1 << 2);
-		}
-		cycle++;
-		pc++;
-		return;
-	case 0x14:    	//mov w,++fr 0010 100f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		*w = RAM[fr] + 1;
-		if (*w == 0)
-		{
-			*status |= 1 << 2;	// set zero
-		}
-		else
-	{
-			*status &= ~(1 << 2);
-		}
-		cycle++;
-		pc++;
-		return;
-	case 0x1a:    		//mov w,<<fr 0011 010f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		a = (RAM[fr] << 1) | (*status & 1);
-		if (a > 0xff == 0)
-			*status |= 1; //set carry
-		else
-		{
-			*status &= ~1;
-		}
-
-		*w = a & 0xff;
-		cycle++;
-		pc++;
-		return;
-	case 0x18:    //mov w,>>fr 0011 000f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		a = (RAM[fr] >> 1) | (*status & 1) << 7;
-		if (a > 0xff)
-			*status |= 1; //set carry
-		else
-		{
-			*status &= ~1;
-		}
-		*w = a & 0xff;
-		cycle++;
-		pc++;
-		return;
-	case 0x1c: 	//mov w,<>fr 0011 100f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		*w = (RAM[fr] >> 4) | ((RAM[fr] & 0xf) << 4);
-		cycle++;
-		pc++;
-		return;
-
-	case 0x16:    //movsz w,--fr 0010 110f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		*w = RAM[fr] - 1;
-		if (*w == 0)
-		{
-			*status |= 1 << 2;	// set zero
-			pc++;	//skip if fr==0
-			cycle++;
-			while (ROM[pc] >> 3 == 2 || ROM[pc] >> 3 == 3)
-			{
-				pc++;	//skip if page/bank
-				cycle++;
-			}
-		}
-		else
-	{
-			*status &= ~(1 << 2);
-		}
-		cycle++;
-		pc++;
-		return;
-	case 0x1e:    	//movsz w,++fr 0011 110f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		*w = RAM[fr] + 1;
-		if (*w == 0)
-		{
-			*status |= 1 << 2;	// set zero
-			pc++;	//skip if fr==0
-			cycle++;
-			while (ROM[pc] >> 3 == 2 || ROM[pc] >> 3 == 3)
-			{
-				pc++;	//skip if page/bank
-				cycle++;
-			}
-		}
-		else
-	{
-			*status &= ~(1 << 2);
-		}
-		cycle++;
-		pc++;
-		return;
-	case 0x11:    	//test fr 0010 001f ffff
-		fr = mne & 0x1f;
-		if (fr == 0)
-			fr = *fsr;
-		else if (fr > 0xf)
-			fr = (*fsr & 0xf0) | (fr & 0xf);
-
-		if (RAM[fr] == 0)
-		{
-			*status |= 1 << 2;	// set zero
-		}
-		else
-	{
-			*status &= ~(1 << 2);
-		}
-		cycle++;
-		pc++;
-		return;
-	default:
-		if (mne == 0x40)
-		{				//clr w 0000 0100 0000
-			*w = 0;
-			*status |= 1 << 2;
-			cycle++;
-		}
-		else if (mne == 4)
-		{				//clr !WDT 0000 0000 0100
-			//TODO
-			//TO=1
-			//PD=1
-			cycle++;
-
-		}
-		else if (mne == 0x42)
-		{ //mov w,m 0000 0100 0010
-			*w = mode;
-			cycle++;
-		}
-
-		else if (mne == 0x43)
-		{ //mov m,w 0000 0100 011
-			mode = *w;
-			cycle++;
-		}
-		else if (mne >> 4 == 0x5)
-		{ //mov m,#lit 0000 0101 kkkk
-			mode = mne & 0xf;
-			cycle++;
-		}
-		else if (mne == 0x2)
-		{ //mov !option,w 0000 0000 0010
-			option = *w;
-			cycle++;
-		}
-		else if (mne == 0)
-		{				//nop
-			cycle++;
-		}
-		else if (mne == 0xc)
-		{ //ret 0000 0000 1100
-			if (sp == Stack)
-			{
-				sp = Stack + 8;
-			}
-			else sp--;
-			pc = ((*status & 0xe0) << 4) | *sp;
-			cycle += 3;
-			return ;
-		}
-		else if (mne == 0xd)
-		{ //retp
-			if (sp == Stack)
-			{
-				sp = Stack + 8;
-			}
-			else sp--;
-			// The page bits 7:5 of the status register are the address bits 11:9.
-			USHORT page = (*sp >> 4) & 0xe0;
-			RAM[3] = page | (RAM[3] & 0x1f);
-			pc = *sp;
-			cycle += 3;
-			return;
-		}
-		else if (mne >> 3 == 3)
-		{ //bank addr12 0000 0001 1nnn
-			*fsr = ((mne & 7) << 4) | (*fsr & 0xf);
-			cycle++;
-		}
-		else if (mne >> 3 == 2)
-		{ //page addr12 0000 0001 0nnn
-			*status = ((mne & 7) << 5) | (*status & 0x1f);
-			cycle++;
-		}
-		else if (mne == 0x41)
-		{ //IREAD 0000 0100 0001
-			a = ((mode & 0xf) << 8) | *w;
-			a = ROM[a] & 0xfff;
-			mode = (mode & 0xf0) | (a >> 8);
-			*w = a & 0xff;
-			cycle += 4;
-		}
-		else if (mne >= 0x5 && mne <= 0x9)
-		{ //mov !rx,w
-			if (mode == 0xf)
-			{
-				Tris[mne - 5] = *w;
-			}
-			cycle++;
-		}
-		//TODO: reti
-		//TODO: retiw
-		//TODO: SLEEP
-
-
-		else
-	{
-			cycle++;
-		}
-		pc++;
-
-		return;
+	static const Instruction bySevenBits[32] = {
+		&Cpu::controlInstruction, &Cpu::movFrW, &Cpu::controlInstruction, &Cpu::clrFr,
+		&Cpu::movWFrMinusW, &Cpu::subFrW, &Cpu::movWDecFr, &Cpu::decFr,
+		&Cpu::orWFr, &Cpu::orFrW, &Cpu::andWFr, &Cpu::andFrW,
+		&Cpu::xorWFr, &Cpu::xorFrW, &Cpu::addWFr, &Cpu::addFrW,
+		&Cpu::movWFr, &Cpu::testFr, &Cpu::movWNotFr, &Cpu::notFr,
+		&Cpu::movWIncFr, &Cpu::incFr, &Cpu::movszDec, &Cpu::decsz,
+		&Cpu::movWRrFr, &Cpu::rrFr, &Cpu::movWRlFr, &Cpu::rlFr,
+		&Cpu::movWSwapFr, &Cpu::swapFr, &Cpu::movszInc, &Cpu::incsz
+	};
+	USHORT sevenBits = mne >> 5;
+	(this->*(sevenBits < 32 ? bySevenBits[sevenBits] : &Cpu::controlInstruction))(mne);
 }
+
+// w = value, the zero flag follows
+void Cpu::setW(unsigned char value)
+{
+	*w = value;
+	setZero(value == 0);
+	next();
+}
+
+// fr = value, the zero flag follows
+void Cpu::setRegister(USHORT fr, unsigned char value)
+{
+	RAM[fr] = value;
+	setZero(value == 0);
+	next();
+}
+
+void Cpu::movFrW(USHORT mne)
+{
+	USHORT fr = registerAddress(mne);
+	RAM[fr] = *w;
+	next();
+	portWritten(fr, *w);
+}
+
+void Cpu::clrFr(USHORT mne)
+{
+	USHORT fr = registerAddress(mne);
+	RAM[fr] = 0;
+	portWritten(fr, 0);
+	setZero(true);
+	next();
+}
+
+void Cpu::decFr(USHORT mne)
+{
+	USHORT fr = registerAddress(mne);
+	RAM[fr] -= 1;
+	setZero(RAM[fr] == 0);
+	portWritten(fr, RAM[fr]);
+	next();
+}
+
+void Cpu::incFr(USHORT mne)
+{
+	USHORT fr = registerAddress(mne);
+	RAM[fr]++;
+	setZero(RAM[fr] == 0);
+	portWritten(fr, RAM[fr]);
+	next();
+}
+
+void Cpu::decsz(USHORT mne)
+{
+	USHORT fr = registerAddress(mne);
+	RAM[fr] -= 1;
+	skipIfZero(RAM[fr]);
+}
+
+void Cpu::incsz(USHORT mne)
+{
+	USHORT fr = registerAddress(mne);
+	RAM[fr]++;
+	skipIfZero(RAM[fr]);
+}
+
+void Cpu::movszDec(USHORT mne)
+{
+	*w = RAM[registerAddress(mne)] - 1;
+	skipIfZero(*w);
+}
+
+void Cpu::movszInc(USHORT mne)
+{
+	*w = RAM[registerAddress(mne)] + 1;
+	skipIfZero(*w);
+}
+
+// The zero flag follows the value, if it is zero the next instruction is skipped.
+void Cpu::skipIfZero(unsigned char value)
+{
+	setZero(value == 0);
+	if (value == 0)
+	{
+		skipFollowing();
+	}
+	next();
+}
+
+void Cpu::andFrW(USHORT mne)
+{
+	USHORT fr = registerAddress(mne);
+	setRegister(fr, RAM[fr] & *w);
+}
+
+void Cpu::orFrW(USHORT mne)
+{
+	USHORT fr = registerAddress(mne);
+	setRegister(fr, RAM[fr] | *w);
+}
+
+void Cpu::xorFrW(USHORT mne)
+{
+	USHORT fr = registerAddress(mne);
+	setRegister(fr, RAM[fr] ^ *w);
+}
+
+void Cpu::notFr(USHORT mne)
+{
+	USHORT fr = registerAddress(mne);
+	setRegister(fr, ~RAM[fr]);
+}
+
+void Cpu::andWFr(USHORT mne)
+{
+	setW(*w & RAM[registerAddress(mne)]);
+}
+
+void Cpu::xorWFr(USHORT mne)
+{
+	setW(*w ^ RAM[registerAddress(mne)]);
+}
+
+// Known fault, kept for now: a zero result replaces the whole status register
+// instead of setting the zero flag.
+void Cpu::orWFr(USHORT mne)
+{
+	*w |= RAM[registerAddress(mne)];
+	if (*w == 0)
+		*status = 1 << 2;
+	else
+		*status &= ~(1 << 2);
+	next();
+}
+
+void Cpu::movWFr(USHORT mne)
+{
+	setW(RAM[registerAddress(mne)]);
+}
+
+void Cpu::movWNotFr(USHORT mne)
+{
+	setW(~RAM[registerAddress(mne)]);
+}
+
+void Cpu::movWDecFr(USHORT mne)
+{
+	setW(RAM[registerAddress(mne)] - 1);
+}
+
+void Cpu::movWIncFr(USHORT mne)
+{
+	setW(RAM[registerAddress(mne)] + 1);
+}
+
+void Cpu::movWSwapFr(USHORT mne)
+{
+	USHORT fr = registerAddress(mne);
+	*w = (RAM[fr] >> 4) | ((RAM[fr] & 0xf) << 4);
+	next();
+}
+
+void Cpu::swapFr(USHORT mne)
+{
+	USHORT fr = registerAddress(mne);
+	RAM[fr] = (RAM[fr] >> 4) | ((RAM[fr] & 0xf) << 4);
+	next();
+}
+
+void Cpu::testFr(USHORT mne)
+{
+	setZero(RAM[registerAddress(mne)] == 0);
+	next();
+}
+
+void Cpu::addFrW(USHORT mne)
+{
+	USHORT fr = registerAddress(mne);
+	setDigitCarry(RAM[fr] < 0x10 && (*w) + RAM[fr] > 0xf);
+	USHORT sum;
+	if (fr != 2)
+		sum = RAM[fr] + *w;
+	else
+		sum = pc + *w;
+	// jmp PC+W: only the low byte of the program counter takes part in the
+	// addition, so the carry is normally cleared.
+	setCarry((fr != 2 ? sum : ((pc + 1) & 0xff) + *w) > 0xff);
+
+	if (fr != 2)
+		RAM[fr] = sum & 0xff;
+	else
+		pc = sum;
+
+	setZero(sum == 0);
+	next((fr == 2) ? 3 : 1);	// jmp PC+W takes 3 cycles
+}
+
+void Cpu::addWFr(USHORT mne)
+{
+	USHORT fr = registerAddress(mne);
+	setDigitCarry(*w < 0x10 && (*w) + RAM[fr] > 0xf);
+	USHORT sum = *w + RAM[fr];
+	setCarry(sum > 0xff);
+	setW(sum & 0xff);
+}
+
+// Known fault, kept for now: the zero flag follows w and not the result, and
+// the digit carry is not the real one.
+void Cpu::subFrW(USHORT mne)
+{
+	USHORT fr = registerAddress(mne);
+	setDigitCarry(RAM[fr] > 0xf && RAM[fr] - *w > 0x10);
+	setCarry(RAM[fr] >= *w);
+	RAM[fr] -= *w;
+	setZero(*w == 0);
+	next();
+}
+
+void Cpu::movWFrMinusW(USHORT mne)
+{
+	USHORT fr = registerAddress(mne);
+	setCarry(RAM[fr] >= *w);
+	setW(RAM[fr] - *w);
+}
+
+void Cpu::rlFr(USHORT mne)
+{
+	USHORT fr = registerAddress(mne);
+	bool carryOut = RAM[fr] >> 7 == 1;
+	RAM[fr] = (RAM[fr] << 1) | (*status & 1);
+	setCarry(carryOut);
+	next();
+}
+
+void Cpu::rrFr(USHORT mne)
+{
+	USHORT fr = registerAddress(mne);
+	bool carryOut = (RAM[fr] & 1) == 1;
+	RAM[fr] = (RAM[fr] >> 1) | ((*status & 1) << 7);
+	setCarry(carryOut);
+	next();
+}
+
+// Known fault, kept for now: the carry is inverted and the zero flag is not
+// touched.
+void Cpu::movWRlFr(USHORT mne)
+{
+	USHORT a = (RAM[registerAddress(mne)] << 1) | (*status & 1);
+	setCarry((a > 0xff) == 0);
+	*w = a & 0xff;
+	next();
+}
+
+// Known fault, kept for now: the carry is never set.
+void Cpu::movWRrFr(USHORT mne)
+{
+	USHORT a = (RAM[registerAddress(mne)] >> 1) | (*status & 1) << 7;
+	setCarry(a > 0xff);
+	*w = a & 0xff;
+	next();
+}
+
+// The instructions without a register operand.
+void Cpu::controlInstruction(USHORT mne)
+{
+	if (mne == 0xc)
+	{ //ret 0000 0000 1100
+		pc = ((*status & 0xe0) << 4) | popReturnAddress();
+		cycle += 3;
+		return;
+	}
+	if (mne == 0xd)
+	{ //retp
+		USHORT address = popReturnAddress();
+		// The page bits 7:5 of the status register are the address bits 11:9.
+		RAM[3] = ((address >> 4) & 0xe0) | (RAM[3] & 0x1f);
+		pc = address;
+		cycle += 3;
+		return;
+	}
+
+	int cycles = 1;
+	if (mne == 0x40)
+	{ //clr w 0000 0100 0000
+		*w = 0;
+		setZero(true);
+	}
+	else if (mne == 0x42)
+	{ //mov w,m 0000 0100 0010
+		*w = mode;
+	}
+	else if (mne == 0x43)
+	{ //mov m,w 0000 0100 011
+		mode = *w;
+	}
+	else if (mne >> 4 == 0x5)
+	{ //mov m,#lit 0000 0101 kkkk
+		mode = mne & 0xf;
+	}
+	else if (mne == 0x2)
+	{ //mov !option,w 0000 0000 0010
+		option = *w;
+	}
+	else if (mne >> 3 == 3)
+	{ //bank addr12 0000 0001 1nnn
+		*fsr = ((mne & 7) << 4) | (*fsr & 0xf);
+	}
+	else if (mne >> 3 == 2)
+	{ //page addr12 0000 0001 0nnn
+		*status = ((mne & 7) << 5) | (*status & 0x1f);
+	}
+	else if (mne == 0x41)
+	{ //IREAD 0000 0100 0001
+		USHORT address = ((mode & 0xf) << 8) | *w;
+		address = ROM[address] & 0xfff;
+		mode = (mode & 0xf0) | (address >> 8);
+		*w = address & 0xff;
+		cycles = 4;
+	}
+	else if (mne >= 0x5 && mne <= 0x9)
+	{ //mov !rx,w
+		if (mode == 0xf)
+		{
+			Tris[mne - 5] = *w;
+		}
+	}
+	// nop, clr !WDT and what is not implemented (reti, retiw, sleep) take a cycle
+	next(cycles);
 }
 
 void Cpu::joystick()
