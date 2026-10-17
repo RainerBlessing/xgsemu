@@ -59,6 +59,18 @@ protected:
         return result;
     }
 
+    // how many samples are at 95% of the peak or above: a square is there all the time
+    static int timeNearThePeak(const std::vector<short>& buffer) {
+        int top = peak(buffer);
+        int count = 0;
+        for (short sample : buffer) {
+            if (std::abs((int)sample) > top * 0.95) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     static int risingZeroCrossings(const std::vector<short>& buffer) {
         int count = 0;
         for (size_t i = 1; i < buffer.size(); i++) {
@@ -170,6 +182,27 @@ TEST_F(Bu8763Test, SineWaveReachesSamePeakButIsNotSquare) {
     }
     // A sine is above 95% of its peak about 20% of the time, a square always.
     EXPECT_LT(nearPeak, 600);
+}
+
+// The data sheet: "Same setting WAVE1,2,3" and "3 sound resources can only the
+// setting of all sine wave or all special square wave". The wave form bit of the
+// last mode register that is written counts for all three channels.
+TEST_F(Bu8763Test, TheWaveFormIsTheSameForAllChannels) {
+    playSquare(0x18);
+    std::vector<short> square = render(2000);
+    writeRegister(1, 0x40 | 0x20);   // mode of wave 2, with the sine bit
+    std::vector<short> after = render(2000);
+    // wave 1 is a sine now, too: it spends much less time at its peak
+    EXPECT_LT(timeNearThePeak(after), timeNearThePeak(square) / 2);
+}
+
+TEST_F(Bu8763Test, TheLastModeWriteDecidesAndAClearedBitMakesAllChannelsSquareAgain) {
+    playSquare(0x18);
+    writeRegister(1, 0x20);          // wave 1 sine
+    std::vector<short> sine = render(2000);
+    writeRegister(1, 0x80);          // mode of wave 3 without the sine bit
+    std::vector<short> square = render(2000);
+    EXPECT_GT(timeNearThePeak(square), timeNearThePeak(sine) * 2);
 }
 
 TEST_F(Bu8763Test, AttenuationOfSixDbHalvesTheLevel) {

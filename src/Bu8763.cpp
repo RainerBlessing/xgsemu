@@ -60,6 +60,7 @@ void Bu8763::reset()
 		envelope[i] = 1.0;
 	}
 	gainReg = 0;
+	sineWave = false;
 	halfClock = false;
 }
 
@@ -98,6 +99,8 @@ void Bu8763::latch(int command)
 			if (channel < CHANNELS)
 			{
 				modeReg[channel] = data & 0x3f;
+				// the data sheet: the wave form is the same for WAVE1, 2 and 3
+				sineWave = (data & MODE_SINE) != 0;
 			}
 			break;
 		case REG_FREQ:
@@ -161,7 +164,7 @@ void Bu8763::render(short* out, int samples, int sampleRate)
 				continue;
 			}
 			double wave;
-			if (modeReg[c] & MODE_SINE)
+			if (sineWave)
 			{
 				wave = sin(TWO_PI * phase[c]);
 			}

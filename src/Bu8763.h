@@ -12,7 +12,8 @@
  * the rising edge of SSTB.
  *
  * portWrite() is called by the emulator thread, render() by the audio thread.
- * Only the melody mode is emulated (no DTMF/tone generator).
+ * Only the melody mode is emulated (no DTMF/tone generator). The wave form (sine or
+ * square) is one setting for all three channels, the last mode register written counts.
  */
 class Bu8763
 {
@@ -56,6 +57,7 @@ private:
 	unsigned char modeReg[CHANNELS];
 	unsigned char freqReg[CHANNELS];
 	unsigned char gainReg;
+	bool sineWave; // the wave form of all three channels: sine or special square
 	bool halfClock;
 	double phase[CHANNELS];
 	double envelope[CHANNELS];
