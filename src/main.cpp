@@ -69,7 +69,12 @@ int main(int argc, char* argv[]) {
     }
     
     // Create emulator instance
+#ifdef __EMSCRIPTEN__
+    // The page title (SDL sets it from the window title) needs no version number.
+    XGSEmu emulator(appDir, "XGameStation Emulator");
+#else
     XGSEmu emulator(appDir, std::string("XGSEmu ") + XGSE_VERSION);
+#endif
     
     // Start the emulator
     int result = emulator.run(hexFilePath);
