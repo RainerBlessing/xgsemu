@@ -25,5 +25,10 @@ class FileHandler
 {
 public:
 	static bool readFile(const char *fn, u16 * sx );
+	/**
+	 * Reads the program and the FUSEX word of the file. The CF bit (bit 6) of it decides
+	 * whether the carry flag is an input of ADD and SUB.
+	 */
+	static bool readFile(const char *fn, u16 * sx, u16 * fusex);
 };
 #endif

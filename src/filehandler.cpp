@@ -38,6 +38,12 @@ int str_case_compare(const char* s1, const char* s2) {
  */
 bool FileHandler::readFile(const char *fn, u16 * rom)
 {
+    u16 fusex;
+    return readFile(fn, rom, &fusex);
+}
+
+bool FileHandler::readFile(const char *fn, u16 * rom, u16 * fusex)
+{
     size_t fn_length = strlen(fn);
     if (fn_length < 3) {
         return false;
@@ -63,5 +69,6 @@ bool FileHandler::readFile(const char *fn, u16 * rom)
         return false;
     }
     memcpy(rom, sx.rom, 4096*2);
+    *fusex = sx.rom[FUSEX_LOC];
     return true;
 }

@@ -41,6 +41,12 @@ Cpu::Cpu (Video* video)
 	this->video = video;
 	sound = NULL;
 	joystickr = 0;
+	carryInput = false;
+}
+
+void Cpu::setFusex(USHORT fusex)
+{
+	carryInput = ((fusex >> 6) & 1) == 0;
 }
 
 void Cpu::setSound(Bu8763* sound)
@@ -585,12 +591,13 @@ void Cpu::testFr(USHORT mne)
 void Cpu::addFrW(USHORT mne)
 {
 	USHORT fr = registerAddress(mne);
-	setDigitCarry(RAM[fr] < 0x10 && (*w) + RAM[fr] > 0xf);
+	// the digit carry is the carry from bit 3
+	setDigitCarry(((RAM[fr] & 0xf) + (*w & 0xf) + (fr != 2 ? carryIn() : 0)) > 0xf);
 	USHORT sum;
 	if (fr != 2)
-		sum = RAM[fr] + *w;
+		sum = RAM[fr] + *w + carryIn();
 	else
-		sum = pc + *w;
+		sum = pc + *w; // the jump ignores the carry
 	// jmp PC+W: only the low byte of the program counter takes part in the
 	// addition, so the carry is normally cleared.
 	setCarry((fr != 2 ? sum : ((pc + 1) & 0xff) + *w) > 0xff);
@@ -611,32 +618,38 @@ void Cpu::addFrW(USHORT mne)
 void Cpu::addWFr(USHORT mne)
 {
 	USHORT fr = registerAddress(mne);
-	setDigitCarry(*w < 0x10 && (*w) + RAM[fr] > 0xf);
-	USHORT sum = *w + RAM[fr];
+	setDigitCarry(((*w & 0xf) + (RAM[fr] & 0xf) + carryIn()) > 0xf);
+	USHORT sum = *w + RAM[fr] + carryIn();
 	setCarry(sum > 0xff);
 	setW(sum & 0xff);
 }
 
-// Carry and digit carry of a subtraction are set when there is no borrow, from
-// bit 7 and from bit 3.
-void Cpu::setSubtractionFlags(unsigned char minuend, unsigned char subtrahend)
+// The carry flag as an input of ADD: only if the CF bit of the FUSEX word is 0.
+int Cpu::carryIn() const
 {
-	setCarry(minuend >= subtrahend);
-	setDigitCarry((minuend & 0xf) >= (subtrahend & 0xf));
+	return carryInput ? (*status & 1) : 0;
+}
+
+// A subtraction, with the borrow if CF is 0: the complement of the carry flag. Carry and
+// digit carry are set when there is no borrow, from bit 7 and from bit 3.
+int Cpu::subtract(unsigned char minuend, unsigned char subtrahend)
+{
+	int borrow = carryInput ? 1 - (*status & 1) : 0;
+	setCarry(minuend >= subtrahend + borrow);
+	setDigitCarry((minuend & 0xf) >= (subtrahend & 0xf) + borrow);
+	return (minuend - subtrahend - borrow) & 0xff;
 }
 
 void Cpu::subFrW(USHORT mne)
 {
 	USHORT fr = registerAddress(mne);
-	setSubtractionFlags(RAM[fr], *w);
-	setRegister(fr, RAM[fr] - *w);
+	setRegister(fr, subtract(RAM[fr], *w));
 }
 
 void Cpu::movWFrMinusW(USHORT mne)
 {
 	USHORT fr = registerAddress(mne);
-	setSubtractionFlags(RAM[fr], *w);
-	setW(RAM[fr] - *w);
+	setW(subtract(RAM[fr], *w));
 }
 
 void Cpu::rlFr(USHORT mne)

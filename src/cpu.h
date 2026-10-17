@@ -90,6 +90,12 @@ public:
 		return (int)cycle;
 	};
 	/**
+	 * Sets the FUSEX word of the program. Bit 6 (CF) decides whether the carry flag is an
+	 * input of ADD and SUB (0) or not (1). The fuses are part of the program file and are not
+	 * touched by reset().
+	 */
+	void setFusex(USHORT fusex);
+	/**
 	 * Connects the sound chip. Changes of port RA are forwarded to it.
 	 * @param sound The chip or NULL to disable the sound
 	 */
@@ -135,6 +141,7 @@ private:
 	unsigned char lastRa; // RA as the sound chip has seen it
 	Uint16 joystickr;
 	// state of the serial joystick interface and of the SRAM address logic
+	bool carryInput; // CF of the FUSEX word is 0: ADD and SUB take the carry flag as input
 	bool joystickClockHigh;
 	char joystickBit;
 	USHORT sramPage;
@@ -150,7 +157,8 @@ private:
 	void setZero(bool zero);
 	void setCarry(bool carry);
 	void setDigitCarry(bool digitCarry);
-	void setSubtractionFlags(unsigned char minuend, unsigned char subtrahend);
+	int carryIn() const;
+	int subtract(unsigned char minuend, unsigned char subtrahend);
 	void next(int cycles = 1);
 	void skipFollowing();
 	void pushReturnAddress(USHORT address);

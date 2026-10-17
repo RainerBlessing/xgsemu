@@ -73,3 +73,34 @@ TEST_F(FileHandlerTest, AFileNameWithoutAnExtensionIsAnError) {
     EXPECT_FALSE(FileHandler::readFile("ab", rom));
     EXPECT_TRUE(untouched());
 }
+
+// The fuse words are part of the program file: the FUSEX word has the CF bit that decides
+// whether ADD and SUB take the carry flag as input.
+TEST_F(FileHandlerTest, ReturnsTheFusexWordOfAHexFile) {
+    // FUSE at word 0x1010, FUSEX at word 0x1011: byte address 0x2020
+    TestFile file(".hex", hexProgram().substr(0, hexProgram().find(":00000001FF")) +
+                              hexRecord(0x2020, 0, {0xaa, 0x0f, 0xbf, 0x0f}) + ":00000001FF\n");
+    u16 fusex = 0;
+    ASSERT_TRUE(FileHandler::readFile(file.name(), rom, &fusex));
+    EXPECT_EQ(0xfbf, fusex);
+}
+
+TEST_F(FileHandlerTest, ANonProgrammedFusexWordIsAllOnes) {
+    TestFile file(".hex", hexProgram());
+    u16 fusex = 0;
+    ASSERT_TRUE(FileHandler::readFile(file.name(), rom, &fusex));
+    EXPECT_EQ(0xfff, fusex);
+}
+
+TEST_F(FileHandlerTest, AnObjectFileHasNoFuses) {
+    TestFile file(".obj", std::string("\x2a\x0c", 2));
+    u16 fusex = 0;
+    ASSERT_TRUE(FileHandler::readFile(file.name(), rom, &fusex));
+    EXPECT_EQ(0xfff, fusex);
+}
+
+TEST_F(FileHandlerTest, TheFusexWordIsNotTouchedWhenTheFileCannotBeRead) {
+    u16 fusex = 0x123;
+    EXPECT_FALSE(FileHandler::readFile("no_such_file.hex", rom, &fusex));
+    EXPECT_EQ(0x123, fusex);
+}

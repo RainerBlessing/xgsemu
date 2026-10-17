@@ -973,3 +973,52 @@ TEST_F(CpuTimerTest, AnExternalClockSourceNeverCounts) {
     run(3 + 500);
     EXPECT_EQ(0, rtcc());
 }
+
+// The CF bit of the FUSEX word (bit 6): if it is 0, the carry flag is an input of ADD and SUB
+// (data sheet, section 4.6 and the instruction set table). SUB then subtracts the complement
+// of the carry, the borrow. The XGS programs that do 16 bit arithmetic rely on it.
+class CpuCarryInputTest : public CpuResultTest {
+protected:
+    void SetUp() override {
+        CpuResultTest::SetUp();
+        cpu->setFusex(0xfbf);        // CF = 0
+    }
+};
+
+TEST_F(CpuCarryInputTest, TheFusexWordWithCfZeroSwitchesTheCarryInputOn) {
+    const Case cases[] = {
+        {"add fr,w with carry", 0x1e0 | 0x0c, 0x01, 0x01, C, NONE, 0x03, C, 0},
+        {"add fr,w without carry flag", 0x1e0 | 0x0c, 0x01, 0x01, 0, NONE, 0x02, C, 0},
+        {"add w,fr with carry", 0x1c0 | 0x0c, 0x01, 0x01, C, 0x03, NONE, C, 0},
+        {"add fr,w the carry in makes a carry out", 0x1e0 | 0x0c, 0x00, 0xff, C, NONE, 0x00, Z | C, Z | C},
+    };
+    for (const Case& c : cases) check(c);
+}
+
+TEST_F(CpuCarryInputTest, SubtractsTheBorrowThatIsTheComplementOfTheCarry) {
+    const Case cases[] = {
+        {"sub fr,w carry set is no borrow", 0x0a0 | 0x0c, 0x03, 0x05, C, NONE, 0x02, C, C},
+        {"sub fr,w carry clear is a borrow", 0x0a0 | 0x0c, 0x03, 0x05, 0, NONE, 0x01, C, C},
+        {"sub fr,w the borrow can make a borrow", 0x0a0 | 0x0c, 0x05, 0x05, 0, NONE, 0xff, C, 0},
+        {"mov w,fr-w carry clear is a borrow", 0x080 | 0x0c, 0x03, 0x05, 0, 0x01, NONE, C, C},
+        {"mov w,fr-w carry set is no borrow", 0x080 | 0x0c, 0x03, 0x05, C, 0x02, NONE, C, C},
+    };
+    for (const Case& c : cases) check(c);
+}
+
+TEST_F(CpuCarryInputTest, TheJumpWithAddToTheProgramCounterIgnoresTheCarry) {
+    USHORT* pc = cpu->getPC();
+    unsigned char* ram = cpu->getRAM();
+    *pc = 0xa00;
+    ram[261] = 0x03;
+    ram[3] |= C;
+    setRomValue(0xa00, 0x1e2);
+    cpu->execute();
+    EXPECT_EQ(0xa04, *pc);
+}
+
+TEST_F(CpuResultTest, WithTheCfBitSetTheCarryIsNoInput) {
+    cpu->setFusex(0xfff);            // CF = 1, the default
+    check({"add fr,w", 0x1e0 | 0x0c, 0x01, 0x01, C, NONE, 0x02, C, 0});
+    check({"sub fr,w", 0x0a0 | 0x0c, 0x03, 0x05, 0, NONE, 0x02, C, C});
+}

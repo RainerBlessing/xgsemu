@@ -432,8 +432,9 @@ void XGSEmu::loadHexFile(const std::string& path) {
     
     // Read the file first: if it cannot be read the running program stays as it is
     u16 rom[4096];
+    u16 fusex;
     printf("Lade ROM-Datei: %s\n", path.c_str());
-    if (!FileHandler::readFile(path.c_str(), rom)) {
+    if (!FileHandler::readFile(path.c_str(), rom, &fusex)) {
         printf("Fehler beim Lesen der ROM-Datei!\n");
         return;
     }
@@ -481,6 +482,7 @@ void XGSEmu::loadHexFile(const std::string& path) {
         cpu->setSound(sound);
         
         memcpy(cpu->getROM(), rom, sizeof(rom));
+        cpu->setFusex(fusex); // CF: the carry is an input of ADD and SUB
         printf("ROM-Datei erfolgreich geladen.\n");
         
         // Create new texture from the emulator display - NACH dem ROM-Laden
