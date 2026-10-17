@@ -568,7 +568,8 @@ void Cpu::addFrW(USHORT mne)
 	else
 		pc = sum;
 
-	setZero(sum == 0);
+	// the zero flag follows the 8 bit result, not the sum with its carry
+	setZero((fr != 2 ? (sum & 0xff) : sum) == 0);
 	next((fr == 2) ? 3 : 1);	// jmp PC+W takes 3 cycles
 }
 

@@ -611,7 +611,9 @@ TEST_F(CpuResultTest, RotateThroughCarry) {
 
 TEST_F(CpuResultTest, AddAndSubtract) {
     const Case cases[] = {
-        {"add fr,w carry", 0x1e0 | 0x0c, 0x01, 0xff, 0, NONE, 0x00, C, C},
+        {"add fr,w carry and zero", 0x1e0 | 0x0c, 0x01, 0xff, 0, NONE, 0x00, Z | C, Z | C},
+        {"add fr,w zero without carry", 0x1e0 | 0x0c, 0x00, 0x00, 0, NONE, 0x00, Z | C, Z},
+        {"add fr,w 1 + 0xff", 0x1e0 | 0x0c, 0xff, 0x01, Z, NONE, 0x00, Z | C, Z | C},
         {"add fr,w digit carry", 0x1e0 | 0x0c, 0x01, 0x0f, 0, NONE, 0x10, Z | C | DC, DC},
         {"add fr,w plain", 0x1e0 | 0x0c, 0x01, 0x01, Z | C | DC, NONE, 0x02, Z | C | DC, 0},
         {"add w,fr carry", 0x1c0 | 0x0c, 0xf0, 0x20, 0, 0x10, NONE, C, C},
