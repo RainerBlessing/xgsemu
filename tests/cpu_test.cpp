@@ -248,3 +248,69 @@ TEST_F(CpuTest, JumpPcPlusWJumpsBehindTheNextInstruction) {
 
     EXPECT_EQ(0xa04, *pc);
 }
+
+// The page bits of the status register (7:5) are the upper bits of the return
+// address. The lower bits of the return address must not end up in the flags.
+TEST_F(CpuTest, RetpKeepsCarryZeroAndDigitCarryFlags) {
+    USHORT* pc = cpu->getPC();
+    unsigned char* ram = cpu->getRAM();
+    *pc = 0x137;                  // the return address 0x138 has bits 4 and 5 set
+    setRomValue(0x137, 0x920);    // call 0x20 (page 0)
+    setRomValue(0x20, 0x00d);     // retp
+    ram[3] = 0;
+
+    cpu->execute();               // call
+    cpu->execute();               // retp
+
+    EXPECT_EQ(0x138, *pc);
+    EXPECT_EQ(0, ram[3] & 0x07);
+}
+
+TEST_F(CpuTest, RetpRestoresThePageOfTheReturnAddress) {
+    USHORT* pc = cpu->getPC();
+    unsigned char* ram = cpu->getRAM();
+    *pc = 0x5f0;
+    ram[3] = 0x00;
+    setRomValue(0x5f0, 0x920);    // call 0x20 in page 0
+    setRomValue(0x20, 0x00d);     // retp
+
+    cpu->execute();
+    cpu->execute();
+
+    EXPECT_EQ(0x5f1, *pc);
+    EXPECT_EQ(2 << 5, ram[3] & 0xe0);   // page 2 (0x400..0x5ff)
+}
+
+// Cycle counts from the SX52 instruction set. Rem-Pac pads its timing with
+// iread (4 cycles each), so a wrong count shifts everything on the scanline.
+class CpuCycleTest : public CpuTest {
+protected:
+    int cyclesOf(USHORT opcode, USHORT address = 0x100) {
+        *cpu->getPC() = address;
+        setRomValue(address, opcode);
+        int before = cpu->getCycle();
+        cpu->execute();
+        return cpu->getCycle() - before;
+    }
+};
+
+TEST_F(CpuCycleTest, IreadTakesFourCycles) {
+    EXPECT_EQ(4, cyclesOf(0x041));
+}
+
+TEST_F(CpuCycleTest, JumpPcPlusWTakesThreeCycles) {
+    cpu->getRAM()[261] = 0;
+    EXPECT_EQ(3, cyclesOf(0x1e2));
+}
+
+TEST_F(CpuCycleTest, SetbOnPortTakesOneCycle) {
+    EXPECT_EQ(1, cyclesOf(0x5a5));   // setb RA.5 (bit 5, register 5)
+}
+
+TEST_F(CpuCycleTest, ClrbOnPortTakesOneCycle) {
+    EXPECT_EQ(1, cyclesOf(0x4a5));   // clrb RA.5
+}
+
+TEST_F(CpuCycleTest, JumpTakesThreeCycles) {
+    EXPECT_EQ(3, cyclesOf(0xa00 | 0x10));
+}

@@ -71,6 +71,13 @@ public:
 		return &joystickr;
 	};
 	/**
+	 * Number of clock cycles executed so far.
+	 */
+	int getCycle() const
+	{
+		return cycle;
+	};
+	/**
 	 * Connects the sound chip. Changes of port RA are forwarded to it.
 	 * @param sound The chip or NULL to disable the sound
 	 */

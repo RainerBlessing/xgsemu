@@ -146,6 +146,7 @@ void Cpu::execute ()
 						break;
 				}
 				//RInput[fr-5]|=1<<bit;
+				cycle++;
 				pc++;
 				return ;
 			}
@@ -259,6 +260,7 @@ void Cpu::execute ()
 						break;
 				}
 				//RInput[fr-5]&=~(1<<bit);
+				cycle++;
 				pc++;
 				return ;
 			}
@@ -355,7 +357,7 @@ void Cpu::execute ()
 					{
 						*status &= ~(1 << 2);
 					}
-					cycle++;
+					cycle += (fr == 2) ? 3 : 1;	// jmp PC+W takes 3 cycles
 					pc++;
 					return;
 				case 0xe:    //add w,fr 0001 110f ffff
@@ -1010,7 +1012,8 @@ void Cpu::execute ()
 							sp = Stack + 8;
 						}
 						else sp--;
-						USHORT page = *sp >> 4;
+						// The page bits 7:5 of the status register are the address bits 11:9.
+						USHORT page = (*sp >> 4) & 0xe0;
 						RAM[3] = page | (RAM[3] & 0x1f);
 						pc = *sp;
 						cycle += 3;
@@ -1032,7 +1035,7 @@ void Cpu::execute ()
 						a = ROM[a] & 0xfff;
 						mode = (mode & 0xf0) | (a >> 8);
 						*w = a & 0xff;
-						cycle += 3;
+						cycle += 4;
 					}
 					else if (mne >= 0x5 && mne <= 0x9)
 					{ //mov !rx,w
