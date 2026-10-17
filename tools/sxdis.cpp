@@ -1,6 +1,6 @@
-// sxdis [-n] file.hex: lists the programmed ROM words of an Intel HEX file.
+// sxdis [-n] [-s] file.hex: lists the programmed ROM words of an Intel HEX file.
 // Targets of jmp and call get labels (L followed by the address); -n leaves
-// the plain numbers.
+// the plain numbers. -s writes source for sxasm instead of a listing.
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -53,21 +53,38 @@ static std::map<int, int> findTargets()
 	return targets;
 }
 
+// Words that are no instruction (the disassembler says "not impl") are data.
+static std::string sourceText(int address, const std::string& text)
+{
+	if (text.compare(0, 8, "not impl") == 0)
+	{
+		char data[16];
+		snprintf(data, sizeof(data), "dw %x", sx.rom[address] & 0xfff);
+		return data;
+	}
+	return text;
+}
+
 int main(int argc, char** argv)
 {
 	bool labels = true;
-	if (argc == 3 && strcmp(argv[1], "-n") == 0)
+	bool source = false;
+	int i = 1;
+	for (; i < argc && argv[i][0] == '-'; i++)
 	{
-		labels = false;
-		argv++;
-		argc--;
+		if (strcmp(argv[i], "-n") == 0)
+			labels = false;
+		else if (strcmp(argv[i], "-s") == 0)
+			source = true;
+		else
+			break;
 	}
-	if (argc != 2 || argv[1][0] == '-')
+	if (argc - i != 1 || argv[i][0] == '-')
 	{
-		std::cerr << "usage: sxdis [-n] file.hex\n";
+		std::cerr << "usage: sxdis [-n] [-s] file.hex\n";
 		return 2;
 	}
-	if (!HexFile::readFile(argv[1], &sx))
+	if (!HexFile::readFile(argv[i], &sx))
 		return 1;
 
 	std::map<int, int> targets;
@@ -78,16 +95,24 @@ int main(int argc, char** argv)
 		for (std::map<int, int>::const_iterator t = targets.begin(); t != targets.end(); ++t)
 			labelled[t->second] = true;
 	}
+	int next = 0;		// the address the assembler is at
 	for (int address = 0; address < SX_MAX_ROM_SIZE; address++)
 	{
 		if (!programmed(address))
 			continue;
-		if (labelled.count(address))
-			printf("%s:\n", labelName(address).c_str());
 		std::string text = disassemble(sx.rom[address]);
 		if (targets.count(address))
 			text = text.substr(0, text.find(' ') + 1) + labelName(targets[address]);
-		printf("%03x: %03x  %s\n", address, sx.rom[address] & 0xfff, text.c_str());
+		// the org comes first: a label is bound to the address at its line
+		if (source && address != next)
+			printf("        org %x\n", address);
+		if (labelled.count(address))
+			printf("%s:\n", labelName(address).c_str());
+		if (source)
+			printf("        %s\n", sourceText(address, text).c_str());
+		else
+			printf("%03x: %03x  %s\n", address, sx.rom[address] & 0xfff, text.c_str());
+		next = address + 1;
 	}
 	return 0;
 }

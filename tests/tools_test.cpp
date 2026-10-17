@@ -42,23 +42,6 @@ void writeFile(const std::string& path, const std::string& text) {
     std::ofstream(path.c_str()) << text;
 }
 
-// "002: 2f0  decsz 10" -> "org 2\ndecsz 10\n" for every line of a listing
-std::string listingToSource(const std::string& listing) {
-    std::istringstream in(listing);
-    std::ostringstream source;
-    std::string line;
-    while (std::getline(in, line)) {
-        size_t colon = line.find(':');
-        size_t text = line.find("  ", colon);
-        std::string instruction = line.substr(text + 2);
-        if (instruction.compare(0, 8, "not impl") == 0) {
-            continue;       // data, there is no source for it
-        }
-        source << "org " << line.substr(0, colon) << "\n" << instruction << "\n";
-    }
-    return source.str();
-}
-
 }
 
 class ToolsTest : public ::testing::Test {
@@ -167,33 +150,72 @@ TEST_F(ToolsTest, UnknownOptionShowsTheUsage) {
     EXPECT_EQ(2, run(sxdis("-x " + quoted(dir + "/small.hex"))).exitCode);
 }
 
-// A real program survives listing, assembling and listing again.
+TEST_F(ToolsTest, SourceOutputHasLabelsAndNoAddresses) {
+    writeFile(dir + "/small.asm",
+        "start:  mov w, #5\n"
+        "        mov 10, w\n"
+        "loop:   decsz 10\n"
+        "        jmp loop\n"
+        "        jmp start\n");
+    ASSERT_EQ(0, run(sxasm(quoted(dir + "/small.asm") + " " + quoted(dir + "/small.hex"))).exitCode);
+
+    Result source = run(sxdis("-s " + quoted(dir + "/small.hex")));
+    EXPECT_EQ(0, source.exitCode);
+    EXPECT_EQ(
+        "L000:\n"
+        "        mov w, #5\n"
+        "        mov 10, w\n"
+        "L002:\n"
+        "        decsz 10\n"
+        "        jmp L002\n"
+        "        jmp L000\n",
+        source.output);
+}
+
+TEST_F(ToolsTest, SourceOutputSetsTheAddressWhereTheCodeMoves) {
+    writeFile(dir + "/gap.asm", "nop\norg 100\nnop\n");
+    ASSERT_EQ(0, run(sxasm(quoted(dir + "/gap.asm") + " " + quoted(dir + "/gap.hex"))).exitCode);
+
+    Result source = run(sxdis("-s " + quoted(dir + "/gap.hex")));
+    EXPECT_EQ("        nop\n        org 100\n        nop\n", source.output);
+}
+
+TEST_F(ToolsTest, SourceOutputPutsALabelBehindTheOrgOfItsAddress) {
+    writeFile(dir + "/moved.asm", "nop\norg 100\nloop: nop\njmp loop\n");
+    ASSERT_EQ(0, run(sxasm(quoted(dir + "/moved.asm") + " " + quoted(dir + "/moved.hex"))).exitCode);
+
+    Result source = run(sxdis("-s " + quoted(dir + "/moved.hex")));
+    EXPECT_EQ("        nop\n        org 100\nL100:\n        nop\n        jmp L100\n", source.output);
+}
+
+TEST_F(ToolsTest, SourceOutputWritesWhatIsNoInstructionAsData) {
+    writeFile(dir + "/data.asm", "nop\ndw 00a\n");
+    ASSERT_EQ(0, run(sxasm(quoted(dir + "/data.asm") + " " + quoted(dir + "/data.hex"))).exitCode);
+
+    Result source = run(sxdis("-s " + quoted(dir + "/data.hex")));
+    EXPECT_EQ("        nop\n        dw a\n", source.output);
+}
+
+// A real program survives writing it as source and assembling it again.
 class ToolsExampleTest : public ToolsTest, public ::testing::WithParamInterface<const char*> {};
 
-TEST_P(ToolsExampleTest, ListingOfTheAssembledListingIsTheSame) {
+TEST_P(ToolsExampleTest, SourceAssemblesToTheSameProgram) {
     std::string original = std::string(EXAMPLES_DIR) + "/" + GetParam();
-    Result first = run(sxdis("-n " + quoted(original)));
-    ASSERT_EQ(0, first.exitCode);
+    Result source = run(sxdis("-s " + quoted(original)));
+    ASSERT_EQ(0, source.exitCode);
 
-    writeFile(dir + "/round.asm", listingToSource(first.output));
+    writeFile(dir + "/round.asm", source.output);
     Result assembled = run(sxasm(quoted(dir + "/round.asm") + " " + quoted(dir + "/round.hex")));
     ASSERT_EQ(0, assembled.exitCode) << assembled.output;
 
-    Result second = run(sxdis("-n " + quoted(dir + "/round.hex")));
-    ASSERT_EQ(0, second.exitCode);
-
-    // the words without source are left out of the second listing
-    std::istringstream in(first.output);
-    std::string line, expected;
-    while (std::getline(in, line)) {
-        if (line.find("not impl") == std::string::npos) {
-            expected += line + "\n";
-        }
-    }
-    EXPECT_EQ(expected, second.output);
+    Result before = run(sxdis("-n " + quoted(original)));
+    Result after = run(sxdis("-n " + quoted(dir + "/round.hex")));
+    ASSERT_EQ(0, before.exitCode);
+    EXPECT_EQ(before.output, after.output);
 }
 
 INSTANTIATE_TEST_SUITE_P(Examples, ToolsExampleTest,
-    ::testing::Values("kj_pong_01.hex", "ms_pac_man.hex", "rem_tetris_01.hex", "racer_01.hex"));
+    ::testing::Values("kj_pong_01.hex", "ms_pac_man.hex", "rem_tetris_01.hex", "racer_01.hex",
+                      "mic_plasma_01.hex", "kj_3d_01.hex"));
 
 #endif

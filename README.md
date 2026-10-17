@@ -195,6 +195,7 @@ version):
 ./sxasm game.asm game.hex       # assemble
 ./sxdis game.hex                # list the programmed ROM words
 ./sxdis -n game.hex             # the same, without labels
+./sxdis -s game.hex > game.asm   # source for sxasm, to edit a program
 ./xgsemu game.hex
 ```
 
@@ -204,6 +205,11 @@ The targets of `jmp` and `call` get a label (`L` and the address, e.g. `L237:`),
 so `jmp 37` after a `page 1` reads `jmp L237`. The page is the one set by the
 `page` instruction in front of the jump, otherwise the page the jump stands in.
 A target that holds no code stays a number. With `-n` there are no labels.
+
+`sxdis -s` writes source instead of a listing: labels, `org` where the code
+moves, and `dw` for words that are no instruction. `sxasm` turns it back into the
+same ROM (the tests do this with six of the examples). The `page` instructions
+stay as they are in the program, `autopage` is not used.
 
 The source has one instruction per line, in the notation `sxdis` writes. Numbers
 are hexadecimal (`0x` is allowed), case and blanks do not matter and `;` starts a
