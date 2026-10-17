@@ -581,22 +581,25 @@ void Cpu::addWFr(USHORT mne)
 	setW(sum & 0xff);
 }
 
-// Known fault, kept for now: the zero flag follows w and not the result, and
-// the digit carry is not the real one.
+// Carry and digit carry of a subtraction are set when there is no borrow, from
+// bit 7 and from bit 3.
+void Cpu::setSubtractionFlags(unsigned char minuend, unsigned char subtrahend)
+{
+	setCarry(minuend >= subtrahend);
+	setDigitCarry((minuend & 0xf) >= (subtrahend & 0xf));
+}
+
 void Cpu::subFrW(USHORT mne)
 {
 	USHORT fr = registerAddress(mne);
-	setDigitCarry(RAM[fr] > 0xf && RAM[fr] - *w > 0x10);
-	setCarry(RAM[fr] >= *w);
-	RAM[fr] -= *w;
-	setZero(*w == 0);
-	next();
+	setSubtractionFlags(RAM[fr], *w);
+	setRegister(fr, RAM[fr] - *w);
 }
 
 void Cpu::movWFrMinusW(USHORT mne)
 {
 	USHORT fr = registerAddress(mne);
-	setCarry(RAM[fr] >= *w);
+	setSubtractionFlags(RAM[fr], *w);
 	setW(RAM[fr] - *w);
 }
 

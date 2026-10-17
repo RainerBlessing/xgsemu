@@ -144,6 +144,7 @@ private:
 	void setZero(bool zero);
 	void setCarry(bool carry);
 	void setDigitCarry(bool digitCarry);
+	void setSubtractionFlags(unsigned char minuend, unsigned char subtrahend);
 	void next(int cycles = 1);
 	void skipFollowing();
 	void pushReturnAddress(USHORT address);

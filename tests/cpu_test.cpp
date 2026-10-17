@@ -616,10 +616,16 @@ TEST_F(CpuResultTest, AddAndSubtract) {
         {"add fr,w plain", 0x1e0 | 0x0c, 0x01, 0x01, Z | C | DC, NONE, 0x02, Z | C | DC, 0},
         {"add w,fr carry", 0x1c0 | 0x0c, 0xf0, 0x20, 0, 0x10, NONE, C, C},
         {"add w,fr zero", 0x1c0 | 0x0c, 0x80, 0x80, 0, 0x00, NONE, Z | C, Z | C},
-        {"sub fr,w no borrow", 0x0a0 | 0x0c, 0x03, 0x05, 0, NONE, 0x02, C, C},
-        {"sub fr,w borrow", 0x0a0 | 0x0c, 0x05, 0x03, C, NONE, 0xfe, C, 0},
-        {"mov w,fr-w equal", 0x080 | 0x0c, 0x05, 0x05, 0, 0x00, 0x05, Z | C, Z | C},
-        {"mov w,fr-w borrow", 0x080 | 0x0c, 0x06, 0x05, C, 0xff, NONE, Z | C, 0},
+        // sub: C and DC are set when there is no borrow (from bit 7 and from bit 3)
+        {"sub fr,w no borrow", 0x0a0 | 0x0c, 0x03, 0x05, 0, NONE, 0x02, Z | C | DC, C | DC},
+        {"sub fr,w borrow", 0x0a0 | 0x0c, 0x05, 0x03, C | DC, NONE, 0xfe, Z | C | DC, 0},
+        {"sub fr,w zero", 0x0a0 | 0x0c, 0x05, 0x05, 0, NONE, 0x00, Z | C | DC, Z | C | DC},
+        {"sub fr,w zero flag follows the result", 0x0a0 | 0x0c, 0x00, 0x05, Z, NONE, 0x05, Z, 0},
+        {"sub fr,w borrow from the low nibble only", 0x0a0 | 0x0c, 0x01, 0x10, 0, NONE, 0x0f, Z | C | DC, C},
+        {"sub fr,w no borrow from the low nibble", 0x0a0 | 0x0c, 0x13, 0x25, 0, NONE, 0x12, Z | C | DC, C | DC},
+        {"mov w,fr-w equal", 0x080 | 0x0c, 0x05, 0x05, 0, 0x00, 0x05, Z | C | DC, Z | C | DC},
+        {"mov w,fr-w borrow", 0x080 | 0x0c, 0x06, 0x05, C | DC, 0xff, NONE, Z | C | DC, 0},
+        {"mov w,fr-w borrow from the low nibble only", 0x080 | 0x0c, 0x01, 0x10, 0, 0x0f, 0x10, Z | C | DC, C},
     };
     for (const Case& c : cases) check(c);
 }
