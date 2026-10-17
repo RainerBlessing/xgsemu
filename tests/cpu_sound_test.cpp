@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include "../src/Bu8763.h"
 #include "../src/Video.h"
-#include "../src/cpu.h"
+#include "cpu.h"
 #include "../src/filehandler.h"
 
 #ifndef EXAMPLES_DIR

@@ -34,6 +34,8 @@ message(STATUS "Build directory: ${CMAKE_BINARY_DIR}")
 # Include directories
 include_directories(${SDL2_INCLUDE_DIRS})
 
+add_subdirectory(sxcpu)
+
 # Source files - nur aus src/ Verzeichnis
 file(GLOB SOURCES
     "src/*.cpp"
@@ -48,7 +50,7 @@ file(GLOB HEADERS
 add_executable(xgsemu ${SOURCES} ${HEADERS})
 
 # Link with libraries
-target_link_libraries(xgsemu ${SDL2_LIBRARIES})
+target_link_libraries(xgsemu sxcpu ${SDL2_LIBRARIES})
 
 # On Unix-like systems (Linux, macOS), we may need to link with additional libraries
 if(UNIX)
@@ -145,7 +147,7 @@ if(BUILD_TESTS)
 
         # Bibliothek aus deinem Projekt
         add_library(xgsemu_lib STATIC ${SOURCES})
-        target_link_libraries(xgsemu_lib ${SDL2_LIBRARIES})
+        target_link_libraries(xgsemu_lib sxcpu ${SDL2_LIBRARIES})
         if(UNIX)
           target_link_libraries(xgsemu_lib pthread)
         endif()

@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include <vector>
-#include "../src/cpu.h"
+#include "cpu.h"
 #include "../src/Video.h"
 
 // Einfache Mock-Klasse für Video
