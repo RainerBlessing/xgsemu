@@ -99,7 +99,7 @@ void Cpu::execute ()
 		}
 	}
 
-	prescaler += (cycle - cycle2);
+	prescaler += (int)(cycle - cycle2);
 	if (prescaler > (2 << (option&0x7)))
 	{
 		RAM[1]++;

@@ -75,7 +75,7 @@ public:
 	 */
 	int getCycle() const
 	{
-		return cycle;
+		return (int)cycle;
 	};
 	/**
 	 * Connects the sound chip. Changes of port RA are forwarded to it.
@@ -113,8 +113,9 @@ private:
 	unsigned char Tris[5];
 	unsigned char RInput[5];
 	Uint32 t1;
-	int cycle;
-	int cycle2;
+	// Unsigned, because the counter runs over after about 27 seconds at 80 MHz.
+	unsigned int cycle;
+	unsigned int cycle2;
 	int prescaler; // prescaler for the timer
 	Video* video;
 	Bu8763* sound;
