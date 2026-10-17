@@ -343,20 +343,20 @@ TEST_F(VideoThresholdTest, ASyncPulseOf4001CyclesStartsAFrame) {
     EXPECT_NE(0u, pixel(100, 2));
 }
 
-// The colour of a fragment is its phase against the colour burst: chroma minus the
-// chroma of the burst, on a wheel of 30 steps of 12 degrees. With burst 0 the
-// chroma 0 is yellow, 5 red and 10 magenta (colour chart of Rem-Pac, photo of
-// figure 11.33(a) in the book); with burst 14 the chroma 0..14 are the other
-// half of the wheel, from blue to yellow (figure 11.33(b)).
+// The colour of a fragment: the phase of its chroma against the colour burst on a wheel
+// of 32 steps of 11.25 degrees (chroma minus burst), at a brightness given by the
+// luminance: every channel is between a lowest and a highest level that belong to the
+// luminance. The reference are the cells of the colour chart in the documentation of
+// Rem-Pac (burst 0, chroma 0..14, luminance 5..14), which this model reproduces with
+// an error of less than 2 of 255, and the photos of figure 11.33 of the book.
 class VideoColourTest : public VideoPictureTest {
 protected:
     struct Rgb {
         int red, green, blue;
     };
 
-    // The colour of a picture fragment of the given chroma at full luminance,
-    // in a line whose colour burst has the chroma "burst".
-    Rgb colourOf(int chroma, int burst) {
+    // The colour of a picture fragment in a line whose colour burst has the chroma "burst".
+    Rgb colourOf(int chroma, int burst, int luminance) {
         Video fresh;
         int clock = 0;
         for (int pass = 0; pass < 2; pass++) {
@@ -365,8 +365,8 @@ protected:
         }
         signal(fresh, clock, 20, SYNC);
         signal(fresh, clock, 400, BLANK);
-        signal(fresh, clock, 45, (burst << 4) | 5);        // the colour burst follows the breezeway
-        signal(fresh, clock, 200, (chroma << 4) | 15);     // the picture
+        signal(fresh, clock, 45, (burst << 4) | 5);                   // the colour burst follows the breezeway
+        signal(fresh, clock, 200, (chroma << 4) | luminance);         // the picture
         signal(fresh, clock, 4000, SYNC);
         int row = lastDrawnRow(fresh);
         Rgb colour = {-1, -1, -1};
@@ -380,41 +380,78 @@ protected:
         return colour;
     }
 
-    // base colour of the wheel (0..255) at full luminance: base * 255 / 256
-    static int full(int base) {
-        return base * 255 / 256;
-    }
-
-    void expectColour(int chroma, int burst, int red, int green, int blue) {
-        SCOPED_TRACE(::testing::Message() << "chroma " << chroma << ", burst " << burst);
-        Rgb colour = colourOf(chroma, burst);
-        EXPECT_EQ(full(red), colour.red);
-        EXPECT_EQ(full(green), colour.green);
-        EXPECT_EQ(full(blue), colour.blue);
+    // a cell of the colour chart, burst 0
+    void expectChartCell(int chroma, int luminance, int red, int green, int blue) {
+        SCOPED_TRACE(::testing::Message() << "chroma " << chroma << ", luminance " << luminance);
+        Rgb colour = colourOf(chroma, 0, luminance);
+        EXPECT_NEAR(red, colour.red, 3);
+        EXPECT_NEAR(green, colour.green, 3);
+        EXPECT_NEAR(blue, colour.blue, 3);
     }
 };
 
-TEST_F(VideoColourTest, WithBurstZeroTheChromaGoesFromYellowThroughRedAndMagentaToBlue) {
-    expectColour(0, 0, 255, 255, 0);      // yellow
-    expectColour(1, 0, 255, 204, 0);      // yellow-orange
-    expectColour(2, 0, 255, 153, 0);      // orange
-    expectColour(5, 0, 255, 0, 0);        // red
-    expectColour(8, 0, 255, 0, 153);      // pink
-    expectColour(10, 0, 255, 0, 255);     // magenta
-    expectColour(12, 0, 153, 0, 255);     // violet
-    expectColour(14, 0, 51, 0, 255);      // blue-violet, the "light blueish" of the first level of Rem-Pac
+TEST_F(VideoColourTest, ColoursMatchTheColourChartOfRemPacAtMediumLuminance) {
+    expectChartCell(0, 9, 234, 231, 90);      // yellow
+    expectChartCell(5, 9, 234, 97, 91);       // red
+    expectChartCell(10, 9, 235, 90, 219);     // magenta
+    expectChartCell(14, 9, 142, 90, 234);     // blue-violet, the "light blueish" of the first level
+    expectChartCell(8, 9, 235, 90, 167);      // pink
 }
 
+TEST_F(VideoColourTest, ColoursMatchTheColourChartAtLowAndHighLuminance) {
+    expectChartCell(0, 7, 187, 182, 38);      // olive yellow
+    expectChartCell(14, 7, 90, 37, 187);      // the maze of the first level of Rem-Pac
+    expectChartCell(0, 5, 74, 74, 14);        // at the black level the chroma is still there, dark
+    expectChartCell(14, 5, 36, 14, 76);
+    expectChartCell(8, 14, 254, 167, 212);    // pastel
+}
+
+TEST_F(VideoColourTest, ARaisedLuminanceMakesTheSameHueBrighter) {
+    int last = -1;
+    for (int luminance = 5; luminance < 15; luminance++) {
+        Rgb colour = colourOf(5, 0, luminance);     // red
+        EXPECT_GE(colour.red, last) << luminance;
+        last = colour.red;
+    }
+}
+
+TEST_F(VideoColourTest, BelowTheBlackLevelEveryColourIsBlack) {
+    for (int luminance = 1; luminance < 5; luminance++) {
+        Rgb colour = colourOf(5, 0, luminance);
+        EXPECT_EQ(0, colour.red) << luminance;
+        EXPECT_EQ(0, colour.green) << luminance;
+        EXPECT_EQ(0, colour.blue) << luminance;
+    }
+}
+
+TEST_F(VideoColourTest, FullLuminanceIsWhiteForEveryHue) {
+    for (int chroma = 0; chroma < 15; chroma++) {
+        Rgb colour = colourOf(chroma, 0, 15);
+        EXPECT_EQ(255, colour.red) << chroma;
+        EXPECT_EQ(255, colour.green) << chroma;
+        EXPECT_EQ(255, colour.blue) << chroma;
+    }
+}
+
+// With burst 14 the chroma 0..14 are the other half of the circle, from blue through
+// green to yellow (photo, figure 11.33(b)).
 TEST_F(VideoColourTest, WithBurstFourteenTheChromaGoesFromBlueThroughGreenToYellow) {
-    expectColour(0, 14, 0, 51, 255);      // blue
-    expectColour(7, 14, 0, 255, 102);     // green-cyan
-    expectColour(14, 14, 255, 255, 0);    // yellow: the same as chroma 0 with burst 0
+    Rgb blue = colourOf(0, 14, 9);
+    EXPECT_GT(blue.blue, blue.green);
+    EXPECT_GT(blue.blue, blue.red);
+    Rgb green = colourOf(7, 14, 9);
+    EXPECT_GT(green.green, green.red);
+    EXPECT_GT(green.green, green.blue);
+    Rgb yellow = colourOf(14, 14, 9);
+    EXPECT_NEAR(234, yellow.red, 3);              // the same as chroma 0 with burst 0
+    EXPECT_NEAR(231, yellow.green, 3);
+    EXPECT_NEAR(90, yellow.blue, 3);
 }
 
 TEST_F(VideoColourTest, OnlyTheDifferenceToTheBurstCounts) {
-    Rgb a = colourOf(3, 1);
-    Rgb b = colourOf(5, 3);
-    Rgb c = colourOf(14, 12);
+    Rgb a = colourOf(3, 1, 9);
+    Rgb b = colourOf(5, 3, 9);
+    Rgb c = colourOf(14, 12, 9);
     EXPECT_EQ(a.red, b.red);
     EXPECT_EQ(a.green, b.green);
     EXPECT_EQ(a.blue, b.blue);
@@ -424,20 +461,23 @@ TEST_F(VideoColourTest, OnlyTheDifferenceToTheBurstCounts) {
 }
 
 TEST_F(VideoColourTest, TheBurstIsSubtractedNotAdded) {
-    Rgb a = colourOf(3, 1);   // difference +2
-    Rgb b = colourOf(1, 3);   // difference -2, as much further the other way
+    Rgb a = colourOf(3, 1, 9);   // difference +2
+    Rgb b = colourOf(1, 3, 9);   // difference -2, as much further the other way
     EXPECT_FALSE(a.red == b.red && a.green == b.green && a.blue == b.blue);
 }
 
 TEST_F(VideoColourTest, ANegativeDifferenceWrapsAroundTheWheel) {
-    expectColour(0, 15, 0, 0, 255);       // 15 steps back from yellow is blue
+    Rgb colour = colourOf(0, 15, 9);      // 15 steps back from yellow: hue 59 + 168.75 = 227.75 degrees
+    EXPECT_NEAR(90, colour.red, 3);       // the lowest level of luminance 9
+    EXPECT_NEAR(119, colour.green, 4);
+    EXPECT_NEAR(234, colour.blue, 3);     // the highest level
 }
 
 TEST_F(VideoColourTest, ChromaFifteenIsGreyWhateverTheBurst) {
     for (int burst = 0; burst < 16; burst++) {
         SCOPED_TRACE(burst);
-        Rgb colour = colourOf(15, burst);
-        EXPECT_EQ(255, colour.red);     // grey is the luminance itself, not scaled
+        Rgb colour = colourOf(15, burst, 15);
+        EXPECT_EQ(255, colour.red);     // grey is the luminance itself
         EXPECT_EQ(colour.red, colour.green);
         EXPECT_EQ(colour.green, colour.blue);
     }

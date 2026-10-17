@@ -84,12 +84,20 @@ const double HORIZONTAL_SCALE = 1.1;
 const int LAST_LINE = 519;
 
 // The colour wheel: the phase of a colour against the colour burst. The hardware
-// delays the colour signal in steps of about 12 degrees, so the wheel has 30 steps.
-// With the burst at chroma 0 the chroma 0 is yellow (60 degrees of hue), 5 is red,
-// 10 is magenta and 14 blue-violet (colour chart of Rem-Pac, figure 11.33 of the book).
-const int WHEEL_STEPS = 30;
-const int STEP_DEGREES = 12;
-const int YELLOW_DEGREES = 60;
+// delays the colour signal in 32 steps of 11.25 degrees. In units of a quarter degree:
+const int WHEEL_STEPS = 32;
+const int STEP_UNITS = 45;           // 11.25 degrees
+const int YELLOW_UNITS = 236;        // 59 degrees: with the burst at chroma 0 the chroma 0 is yellow
+const int WHEEL_UNITS = 1440;        // 360 degrees
+const int SECTOR_UNITS = 240;        // 60 degrees
+
+// How bright the colours of a luminance are: every channel lies between a lowest and a
+// highest level. This is the colour chart of Rem-Pac (burst 0, chroma 0..14, luminance
+// 5..14), where the highest and lowest channel of a row are the same for all hues. The
+// wheel reproduces its cells with an error of less than 2 of 255. Below the black level
+// (luminance 0..4) the colours are black, luminance 15 is white.
+const int LOWEST[16]  = {0, 0, 0, 0, 0,  14,  21,  37,  58,  90, 106, 129, 152, 157, 167, 255};
+const int HIGHEST[16] = {0, 0, 0, 0, 0,  75, 129, 186, 230, 234, 236, 240, 254, 254, 254, 255};
 
 // A fragment with luminance 0 is a sync pulse.
 bool isSync(unsigned short colour)
@@ -190,11 +198,11 @@ int Video::toScreenColumn(int position) const
 // saturated, the hue goes down with the phase.
 void Video::wheelColour(int phase, int* red, int* green, int* blue)
 {
-	int hue = (YELLOW_DEGREES - STEP_DEGREES * phase) % 360;
-	if (hue < 0) hue += 360;
-	int rising = 255 * (hue % 60) / 60;
+	int hue = (YELLOW_UNITS - STEP_UNITS * phase) % WHEEL_UNITS;
+	if (hue < 0) hue += WHEEL_UNITS;
+	int rising = 255 * (hue % SECTOR_UNITS) / SECTOR_UNITS;
 	int falling = 255 - rising;
-	switch (hue / 60)
+	switch (hue / SECTOR_UNITS)
 	{
 		case 0:  *red = 255;     *green = rising;  *blue = 0;       break;
 		case 1:  *red = falling; *green = 255;     *blue = 0;       break;
@@ -206,24 +214,27 @@ void Video::wheelColour(int phase, int* red, int* green, int* blue)
 }
 
 // The colour of a fragment: the chroma is the phase against the colour burst, the
-// luminance the intensity. Chroma 15 is grey.
+// luminance gives the range of the channels. Chroma 15 is grey: the luminance itself.
 Uint32 Video::fragmentPixel(unsigned short colour) const
 {
-	Uint32 r, g, b;
-	Uint32 i = intensity[colour & 0xf];
+	int luminance = colour & 0xf;
 	int chroma = (colour >> 4) & 0xf;
-	if (chroma != 15)
+	if (chroma == 15)
 	{
-		int phase = (chroma - (int)burst) % WHEEL_STEPS;
-		if (phase < 0) phase += WHEEL_STEPS;
-		int red, green, blue;
-		wheelColour(phase, &red, &green, &blue);
-		r = (Uint32)(red * i) >> 8;
-		g = (Uint32)(green * i) >> 8;
-		b = (Uint32)(blue * i) >> 8;
+		Uint32 i = intensity[luminance];
+		return SDL_MapRGB(screen->format, i, i, i);
 	}
-	else r = g = b = i;
-	return SDL_MapRGB(screen->format, r, g, b);
+
+	int phase = (chroma - (int)burst) % WHEEL_STEPS;
+	if (phase < 0) phase += WHEEL_STEPS;
+	int red, green, blue;
+	wheelColour(phase, &red, &green, &blue);
+	int lowest = LOWEST[luminance];
+	int range = HIGHEST[luminance] - lowest;
+	return SDL_MapRGB(screen->format,
+	                  lowest + range * red / 255,
+	                  lowest + range * green / 255,
+	                  lowest + range * blue / 255);
 }
 
 void Video::fillRow(int row, int from, int to, Uint32 pixel)
