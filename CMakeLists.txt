@@ -91,7 +91,7 @@ if(EMSCRIPTEN)
         --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/examples@/examples
         -sALLOW_MEMORY_GROWTH=1
         -sEXPORTED_RUNTIME_METHODS=ccall,FS
-        -sEXPORTED_FUNCTIONS=_main,_xgsLoad,_xgsReset
+        -sEXPORTED_FUNCTIONS=_main,_xgsLoad,_xgsReset,_xgsMute
     )
 endif()
 

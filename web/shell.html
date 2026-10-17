@@ -16,6 +16,11 @@
   #stage { background:#000; border-radius:6px; line-height:0; }
   canvas { width:100%; height:auto; aspect-ratio:4/3; display:block; image-rendering:auto; outline:none; }
   p.hint { color:var(--muted); font-size:.9rem; }
+  .help { margin-top:8px; }
+  .help h2 { font-size:1.05rem; margin:0 0 6px; }
+  table { border-collapse:collapse; margin:8px 0; }
+  th, td { text-align:left; padding:5px 12px 5px 0; border-bottom:1px solid var(--line); }
+  kbd { font:inherit; font-size:.85rem; padding:1px 6px; border:1px solid var(--line); border-radius:4px; }
   #status { color:var(--muted); font-size:.9rem; }
 </style>
 </head>
@@ -27,12 +32,24 @@
     <button id="loadExample" disabled>Run</button>
     <button id="loadFile" disabled>Load .hex / .obj…</button>
     <button id="reset" disabled>Reset</button>
+    <button id="mute" aria-pressed="false">Sound: on</button>
     <button id="fs">Fullscreen</button>
     <input id="file" type="file" accept=".hex,.obj" hidden>
     <span id="status">Loading…</span>
   </div>
   <div id="stage"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas></div>
-  <p class="hint">Cursor keys: joystick · Ctrl: fire · Click the picture first so sound can start.</p>
+  <section class="help">
+    <h2>How to play</h2>
+    <p>Pick a program from the list, or load your own <code>.hex</code> / <code>.obj</code> file for the XGameStation Micro Edition. Click the picture once so the page receives your keystrokes and the browser allows sound.</p>
+    <table>
+      <tr><th>Key</th><th>Joystick</th></tr>
+      <tr><td><kbd>&uarr;</kbd> <kbd>&darr;</kbd> <kbd>&larr;</kbd> <kbd>&rarr;</kbd></td><td>Move (up, down, left, right)</td></tr>
+      <tr><td><kbd>Space</kbd> or <kbd>Ctrl</kbd></td><td>Fire button</td></tr>
+      <tr><td><kbd>F5</kbd></td><td>Reset the running program (the Reset button does the same)</td></tr>
+      <tr><td><kbd>M</kbd></td><td>Mute / unmute the sound</td></tr>
+    </table>
+    <p>On a Mac, Ctrl+arrow keys may switch desktops, so use Space to fire. For full screen use the button above.</p>
+  </section>
 </main>
 <script>
   var $ = function (id) { return document.getElementById(id); };
@@ -48,6 +65,7 @@
       names.forEach(function (n) { var o = document.createElement('option'); o.textContent = n; sel.appendChild(o); });
       ['examples', 'loadExample', 'loadFile', 'reset'].forEach(function (id) { $(id).disabled = false; });
       statusEl.textContent = '';
+      setMuted(muted);
       var def = names.indexOf('ms_pac_man.hex');
       if (def >= 0) sel.selectedIndex = def;
       runExample();
@@ -60,6 +78,16 @@
   function runExample() { startProgram('/examples/' + $('examples').value); }
   $('loadExample').onclick = runExample;
   $('examples').onchange = runExample;
+  var muted = false;
+  try { muted = localStorage.getItem('xgsMuted') === '1'; } catch (e) {}
+  function setMuted(m) {
+    muted = m;
+    Module.ccall('xgsMute', null, ['number'], [m ? 1 : 0]);
+    $('mute').textContent = 'Sound: ' + (m ? 'off' : 'on');
+    $('mute').setAttribute('aria-pressed', m);
+    try { localStorage.setItem('xgsMuted', m ? '1' : '0'); } catch (e) {}
+  }
+  $('mute').onclick = function () { setMuted(!muted); $('canvas').focus(); };
   $('reset').onclick = function () { Module.ccall('xgsReset', null, [], []); $('canvas').focus(); };
   $('fs').onclick = function () { $('stage').requestFullscreen && $('stage').requestFullscreen(); };
   $('loadFile').onclick = function () { $('file').click(); };
@@ -78,6 +106,8 @@
   // keep the page from scrolling / the browser from reacting to the game keys
   window.addEventListener('keydown', function (e) {
     if (e.target.tagName === 'SELECT') return;
+    if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey && !e.altKey && Module.ccall) { setMuted(!muted); return; }
+    if (e.key === 'F5' && $('reset').disabled === false) { e.preventDefault(); }
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].indexOf(e.key) >= 0) e.preventDefault();
   }, { capture: true });
 </script>

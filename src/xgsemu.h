@@ -44,6 +44,7 @@ public:
     void loadHexFile(const std::string& path);
     void reset();
     void toggleFullscreen();
+    void setMuted(bool muted);
 #ifdef __EMSCRIPTEN__
     void frame();
 #endif

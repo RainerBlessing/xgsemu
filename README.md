@@ -109,7 +109,16 @@ python3 -m http.server -d build-web   # then open http://localhost:8000
 ```
 
 The examples are bundled into the page; other `.hex`/`.obj` files can be loaded
-with the file button. Cursor keys move, Ctrl fires.
+with the file button. Live version: <https://rainerblessing.github.io/xgsemu/>
+
+| Key | Action |
+| --- | --- |
+| Cursor keys | Joystick: up, down, left, right |
+| Space or Ctrl | Fire button |
+| F5 | Reset the running program |
+| M | Mute / unmute the sound (also the *Sound* button) |
+
+Click the picture once so it receives the keys and the browser allows sound.
 
 ### Tests
 

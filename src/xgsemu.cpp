@@ -48,6 +48,11 @@ extern "C" EMSCRIPTEN_KEEPALIVE void xgsLoad(const char* path) {
         webEmu->loadHexFile(path);
     }
 }
+extern "C" EMSCRIPTEN_KEEPALIVE void xgsMute(int muted) {
+    if (webEmu != NULL) {
+        webEmu->setMuted(muted != 0);
+    }
+}
 extern "C" EMSCRIPTEN_KEEPALIVE void xgsReset() {
     if (webEmu != NULL) {
         webEmu->reset();
@@ -168,6 +173,12 @@ void XGSEmu::openAudio() {
     }
     audioSampleRate = obtained.freq;
     SDL_PauseAudioDevice(audioDevice, 0);
+}
+
+void XGSEmu::setMuted(bool muted) {
+    if (audioDevice != 0) {
+        SDL_PauseAudioDevice(audioDevice, muted ? 1 : 0);
+    }
 }
 
 void XGSEmu::closeAudio() {
@@ -360,6 +371,7 @@ void XGSEmu::handleEvents() {
                         
                     case SDLK_LCTRL:
                     case SDLK_RCTRL:
+                    case SDLK_SPACE:
                         if (joystickr) *joystickr |= 0x10;
                         break;
                 }
@@ -386,6 +398,7 @@ void XGSEmu::handleEvents() {
                         
                     case SDLK_LCTRL:
                     case SDLK_RCTRL:
+                    case SDLK_SPACE:
                         if (joystickr) *joystickr &= ~0x10;
                         break;
                 }
