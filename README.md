@@ -70,6 +70,10 @@ So:
 
 ### Build Instructions
 
+0. The CPU is the git submodule [sxcpu](https://github.com/RainerBlessing/sxcpu).
+   Clone with `git clone --recurse-submodules`, or run
+   `git submodule update --init` in an existing clone.
+
 1. Create a build directory:
 
 ```bash
