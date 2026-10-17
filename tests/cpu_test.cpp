@@ -500,6 +500,24 @@ TEST_F(CpuSramTest, OnlyTheLast12ClockedBitsFormThePage) {
     EXPECT_EQ(0x5a, cpu->getSRAM()[(0xfff << 4) | 0x3]);
 }
 
+// RA7 is the highest address bit of the 128 KB SRAM.
+TEST_F(CpuSramTest, Ra7SelectsTheUpperHalfOfTheSram) {
+    configureAllPortsAsOutputs();
+    unsigned char* ram = cpu->getRAM();
+    ram[7] = 1 << 6;          // chip disabled
+    for (int i = 0; i < 12; i++) {
+        clockPageBit(1);
+    }
+    ram[5] |= 1 << 7;         // RA7
+    ram[8] = 0x5a;
+    ram[7] = (ram[7] & ~0x0f) | 0x03;
+    ram[7] &= ~(1 << 7);      // write
+    run(0x4c7);               // clrb RC.6: chip enable, writes the SRAM
+
+    EXPECT_EQ(0x5a, cpu->getSRAM()[0x10000 | (0xfff << 4) | 0x3]);
+    EXPECT_EQ(0x00, cpu->getSRAM()[(0xfff << 4) | 0x3]);
+}
+
 TEST_F(CpuTest, ResetClearsTheModeRegister) {
     unsigned char* ram = cpu->getRAM();
     *cpu->getPC() = 0;

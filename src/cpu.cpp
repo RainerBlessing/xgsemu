@@ -54,6 +54,10 @@ void Cpu::reset()
 	memset (RAM, 0, 262);
 	memset (Tris, 0, sizeof(Tris));
 	memset (Stack, 0, sizeof(Stack));
+	sramPage = 0;
+	sramActive = false;
+	joystickClockHigh = false;
+	joystickBit = 0;
 	mode = 0;
 	option = 0;
 	memset (SRAM, 0, 131072*sizeof(unsigned char));
@@ -710,47 +714,43 @@ void Cpu::controlInstruction(USHORT mne)
 
 void Cpu::joystick()
 {
-	static bool shift = false;
-	static bool setb = false;
-	static char jptr;
-	shift = false;
+	bool shift = false;
 	if ((*ra&2) == 0)
 	{
-		jptr = 15;
+		joystickBit = 15;
 	}
 	if ((*ra&1) == 1)
 	{
-		setb = true;
+		joystickClockHigh = true;
 	}
-	if ((*ra&1) == 0 && setb == true)
+	if ((*ra&1) == 0 && joystickClockHigh == true)
 	{
 		shift = true;
-		setb = false;
+		joystickClockHigh = false;
 	}
-	if (shift == true && jptr > -1)
+	if (shift == true && joystickBit > -1)
 	{
-		if (((joystickr >> jptr) &1) == 1)
+		if (((joystickr >> joystickBit) &1) == 1)
 		{
 			*ra = (*ra & 0xf8) | (*ra & 0x3);
 		}
 		else
 			*ra = (*ra & 0xf8) | 4 | (*ra & 0x3);
-		jptr--;
+		joystickBit--;
 	}
 }
 void Cpu::sram()
 {
-	static USHORT page = 0;
-	static USHORT address;
-	static bool active = false;
 	if (((*rc >> 4)&1) == 1)
 	{
-		page <<= 1; //12 bit
-		page |= (*rc >> 5) & 1;
+		sramPage <<= 1;
+		sramPage &= 0xfff; // 12 bit
+		sramPage |= (*rc >> 5) & 1;
 	}
 	if (((*rc >> 6)&1) == 0)
 	{ // chipenable=0
-		address = ((*ra >> 7) & 1) << 16 | page << 4 | *rc & 0xf;
+		// 17 bit address: RA7 is the highest bit, then the 12 bit page, the lowest four bits are in RC
+		int address = ((*ra >> 7) & 1) << 16 | sramPage << 4 | *rc & 0xf;
 
 		if (((RAM[7] >> 7)&1) == 0)
 		{ //write
@@ -760,12 +760,12 @@ void Cpu::sram()
 		{ //read
 			*rd = SRAM[address];
 		}
-		active = true;
+		sramActive = true;
 	}
-	if (((RAM[7] >> 6)&1) == 1 && active == true)
+	if (((RAM[7] >> 6)&1) == 1 && sramActive == true)
 	{ // chipenable=1
-		page = 0;
-		active = false;
+		sramPage = 0;
+		sramActive = false;
 	}
 }
 

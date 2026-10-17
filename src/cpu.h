@@ -134,6 +134,11 @@ private:
 	Bu8763* sound;
 	unsigned char lastRa; // RA as the sound chip has seen it
 	Uint16 joystickr;
+	// state of the serial joystick interface and of the SRAM address logic
+	bool joystickClockHigh;
+	char joystickBit;
+	USHORT sramPage;
+	bool sramActive;
 	typedef void (Cpu::*Instruction)(USHORT mne);
 	static Instruction lookupInstruction(USHORT mne);
 	void updateSound();
