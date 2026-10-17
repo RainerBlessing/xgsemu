@@ -92,11 +92,15 @@ const int WHEEL_UNITS = 1440;        // 360 degrees
 const int SECTOR_UNITS = 240;        // 60 degrees
 
 // How bright the colours of a luminance are: every channel lies between a lowest and a
-// highest level. This is the colour chart of Rem-Pac (burst 0, chroma 0..14, luminance
-// 5..14), where the highest and lowest channel of a row are the same for all hues. The
-// wheel reproduces its cells with an error of less than 2 of 255. Below the black level
-// (luminance 0..4) the colours are black, luminance 15 is white.
-const int LOWEST[16]  = {0, 0, 0, 0, 0,  14,  21,  37,  58,  90, 106, 129, 152, 157, 167, 255};
+// highest level, the same for all hues. Up to luminance 8 these are the levels of the colour
+// chart of Rem-Pac (burst 0, chroma 0..14), which the wheel reproduces with an error of less
+// than 2 of 255 and which are much brighter than the hue scaled with the luminance.
+// Above that the chart goes pastel (the lowest level up to 167), but photos of the real
+// hardware stay saturated: the orange sky, the meadow and the kerbs of Racer City have a
+// lowest channel of 2 to 33% of the highest one, the capture of the plane demo 24% at the
+// highest luminance. So the lowest level is limited to about 30% of the highest one there.
+// Below the black level (luminance 0..4) the colours are black.
+const int LOWEST[16]  = {0, 0, 0, 0, 0,  14,  21,  37,  58,  66,  68,  70,  72,  74,  76,  78};
 const int HIGHEST[16] = {0, 0, 0, 0, 0,  75, 129, 186, 230, 234, 236, 240, 254, 254, 254, 255};
 
 // A fragment with luminance 0 is a sync pulse.
