@@ -38,9 +38,13 @@ public:
 	};
 private:
 	/**
+	 * Number of line segments in the ring buffer
+	 */
+	static const int FRAGMENTS = 1000;
+	/**
 	 * The array with the line segments
 	 */
-	Fragment slfragments[1000];
+	Fragment slfragments[FRAGMENTS];
 	/**
 	 * 28 (2*14) different colours
 	 */

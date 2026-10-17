@@ -1,6 +1,7 @@
 #include "Video.h"
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 
 Video::Video()
 {
@@ -30,6 +31,8 @@ screen = SDL_CreateRGBSurface(0, 560, 525, 32,
 		        SDL_GetError());
 	}
 
+
+	memset(slfragments, 0, sizeof(slfragments));
 
 	intensity[0] = 0;
 	intensity[1] = 0;
@@ -94,13 +97,14 @@ void Video::changeVideo(int cycle, unsigned char colour)
 	unsigned char *ubuff8;
 	static Uint32 burst;
 	Uint32 *ubuff32;
+	// The fragments are a ring buffer, the one before index 0 is the last one.
+	const int previous = (fragmentcounter + FRAGMENTS - 1) % FRAGMENTS;
 
 	slfragments[fragmentcounter].cycles = cycle;
 	if ((slfragments[fragmentcounter].colour &0xf) == 0)
 	{
 
-		if ((fragmentcounter > 0 && cycle - slfragments[fragmentcounter - 1].cycles > 4000) ||
-		        (fragmentcounter == 0 && cycle - slfragments[999].cycles > 4000))
+		if (cycle - slfragments[previous].cycles > 4000)
 		{
 			fragmentcounter = yc = 0;
 			y = 0;
@@ -111,8 +115,7 @@ void Video::changeVideo(int cycle, unsigned char colour)
 			//SDL_UpdateRect(screen, 0, 0, 0, 0);
 		}
 
-		else if ((fragmentcounter > 0 && cycle - slfragments[fragmentcounter - 1].cycles > 360) || //376
-		         (fragmentcounter == 0 && cycle - slfragments[999].cycles > 360))
+		else if (cycle - slfragments[previous].cycles > 360) //376
 		{
 			x = 0;
 			if(y<519){
@@ -124,7 +127,7 @@ void Video::changeVideo(int cycle, unsigned char colour)
 		}
 	}
 	else
-		if (line == false && cycle - slfragments[fragmentcounter - 1].cycles > 40 && cycle - slfragments[fragmentcounter - 1].cycles < 50)
+		if (line == false && cycle - slfragments[previous].cycles > 40 && cycle - slfragments[previous].cycles < 50)
 		{
 			line = true;
 			burst = colour >> 4;
@@ -160,6 +163,9 @@ void Video::changeVideo(int cycle, unsigned char colour)
 
 			x0 = (x0 - 50) * 1.1;
 			x = (x - 50) * 1.1;
+			// The scaling can lead past the last column (510 * 1.1 = 561)
+			if (x0 > screen->w)x0 = screen->w;
+			if (x > screen->w)x = screen->w;
 			//x0=(x0-100)*1.23;
 			//x=(x-100)*1.23;
 
@@ -197,7 +203,7 @@ void Video::changeVideo(int cycle, unsigned char colour)
 
 	fragmentcounter++;
 
-	if (fragmentcounter == 1000)fragmentcounter = 0;
+	if (fragmentcounter == FRAGMENTS)fragmentcounter = 0;
 	slfragments[fragmentcounter].colour = colour;
 
 }
