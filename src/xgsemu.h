@@ -86,8 +86,9 @@ private:
     std::string lastDirectory;
     
     // Constants
-    const int WINDOW_WIDTH = 561;
-    const int WINDOW_HEIGHT = 550;
+    // 4:3 like a television, as high as the picture (525 lines)
+    const int WINDOW_WIDTH = 700;
+    const int WINDOW_HEIGHT = 525;
     const int TARGET_FPS = 60;
     // The speed of the SX52 is given by the clock cycles, not by the number of
     // instructions (jmp and call take 3 cycles, iread 4).

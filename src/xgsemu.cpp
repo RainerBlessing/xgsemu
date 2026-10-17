@@ -22,6 +22,7 @@
 #include "Video.h"
 #include "cpu.h"
 #include "Bu8763.h"
+#include "DisplayLayout.h"
 #include "filehandler.h"
 #include <string.h>
 #include <fstream>
@@ -386,31 +387,14 @@ void XGSEmu::render() {
         int windowWidth, windowHeight;
         SDL_GetWindowSize(window, &windowWidth, &windowHeight);
         
-        // Calculate scaled dimensions while maintaining aspect ratio
-        int textureWidth, textureHeight;
-        SDL_QueryTexture(texture, NULL, NULL, &textureWidth, &textureHeight);
-        
-        float sourceAspect = (float)textureWidth / textureHeight;
-        float windowAspect = (float)windowWidth / windowHeight;
-        
-        int renderWidth, renderHeight;
-        
-        if (windowAspect > sourceAspect) {
-            // Window is wider than source
-            renderHeight = windowHeight;
-            renderWidth = (int)(windowHeight * sourceAspect);
-        } else {
-            // Window is taller than source
-            renderWidth = windowWidth;
-            renderHeight = (int)(windowWidth / sourceAspect);
-        }
-        
-        // Center the texture in the window
+        // The picture is shown in 4:3 like on a television, whatever the shape of the
+        // emulated picture is (560 x 525). It is stretched and centered.
+        DisplayRect target = fitAspect(windowWidth, windowHeight, 4, 3);
         SDL_Rect destRect;
-        destRect.x = (windowWidth - renderWidth) / 2;
-        destRect.y = (windowHeight - renderHeight) / 2;
-        destRect.w = renderWidth;
-        destRect.h = renderHeight;
+        destRect.x = target.x;
+        destRect.y = target.y;
+        destRect.w = target.w;
+        destRect.h = target.h;
         
         // Render the texture
         SDL_RenderCopy(renderer, texture, NULL, &destRect);
