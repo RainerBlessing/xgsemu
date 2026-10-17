@@ -361,3 +361,23 @@ TEST_F(AssembleSourceTest, BoundaryPageAfterData) {
     EXPECT_EQ(0x011, rom[0x200]);
     EXPECT_EQ(0x000, rom[0x201]);
 }
+
+// two pieces of code must not share a word
+
+TEST_F(AssembleSourceTest, OverlappingCodeIsAnError) {
+    EXPECT_FALSE(assembleText("org 10\nnop\nnop\norg 11\nnop\n"));
+    EXPECT_NE(std::string::npos, error.find("line 5")) << error;
+    EXPECT_NE(std::string::npos, error.find("11")) << error;
+}
+
+TEST_F(AssembleSourceTest, DataOverlappingCodeIsAnError) {
+    EXPECT_FALSE(assembleText("org 10\nnop\norg 10\ndw 1\n"));
+}
+
+TEST_F(AssembleSourceTest, CodeRunningIntoTheResetVectorIsAnError) {
+    EXPECT_FALSE(assembleText("org fff\njmp 0\norg ffe\nnop\nnop\n"));
+}
+
+TEST_F(AssembleSourceTest, NeighbouringCodeIsFine) {
+    ASSERT_TRUE(assembleText("org 10\nnop\norg 11\nnop\n")) << error;
+}
