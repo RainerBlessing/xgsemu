@@ -281,3 +281,83 @@ TEST_F(AssembleSourceTest, AutopageNeedsOnOrOff) {
     EXPECT_FALSE(assembleText("autopage maybe\n"));
     EXPECT_NE(std::string::npos, error.find("line 1")) << error;
 }
+
+// firsthalf: a place for the target of a call
+
+TEST_F(AssembleSourceTest, FirsthalfLeavesTheFirstHalfOfAPageAlone) {
+    ASSERT_TRUE(assembleText("nop\nfirsthalf\nhere: nop\n")) << error;
+    EXPECT_EQ(0x000, rom[1]);
+}
+
+TEST_F(AssembleSourceTest, FirsthalfMovesOnToTheNextPageFromTheSecondHalf) {
+    ASSERT_TRUE(assembleText("org 100\nfirsthalf\nnop\n")) << error;
+    EXPECT_EQ(UNUSED, rom[0x100]);
+    EXPECT_EQ(0x000, rom[0x200]);
+}
+
+TEST_F(AssembleSourceTest, FirsthalfAtTheEndOfAPage) {
+    ASSERT_TRUE(assembleText("org 1ff\nfirsthalf\nnop\n")) << error;
+    EXPECT_EQ(0x000, rom[0x200]);
+}
+
+TEST_F(AssembleSourceTest, FirsthalfBindsALabelOnItsLine) {
+    // call needs a target in the first half: the label has to move with the code
+    ASSERT_TRUE(assembleText("org 150\nfirsthalf\nsub: ret\norg 0\ncall sub\n")) << error;
+    EXPECT_EQ(0x900 | 0x00, rom[0]);
+    EXPECT_EQ(0x00c, rom[0x200]);
+}
+
+TEST_F(AssembleSourceTest, FirsthalfBeyondTheRomIsAnError) {
+    EXPECT_FALSE(assembleText("org fff\nfirsthalf\nnop\n"));
+}
+
+// autopage keeps the page right when the code runs across a page boundary
+
+TEST_F(AssembleSourceTest, AutopageSetsThePageWhereCodeRunsIntoTheNextOne) {
+    std::string source = "autopage on\n";
+    for (int i = 0; i < 0x200; i++) {
+        source += "nop\n";
+    }
+    source += "inc 10\n";
+    ASSERT_TRUE(assembleText(source)) << error;
+    EXPECT_EQ(0x000, rom[0x1ff]);
+    EXPECT_EQ(0x011, rom[0x200]);
+    EXPECT_EQ(0x2b0, rom[0x201]);
+}
+
+TEST_F(AssembleSourceTest, NoPageAtTheBoundaryWithoutAutopage) {
+    std::string source;
+    for (int i = 0; i < 0x201; i++) {
+        source += "nop\n";
+    }
+    ASSERT_TRUE(assembleText(source)) << error;
+    EXPECT_EQ(0x000, rom[0x200]);
+}
+
+TEST_F(AssembleSourceTest, NoPageAtABoundaryReachedByOrg) {
+    ASSERT_TRUE(assembleText("autopage on\norg 200\nnop\n")) << error;
+    EXPECT_EQ(0x000, rom[0x200]);
+}
+
+TEST_F(AssembleSourceTest, LabelAtTheBoundaryPointsAtThePageInstruction) {
+    std::string source = "autopage on\n";
+    for (int i = 0; i < 0x200; i++) {
+        source += "nop\n";
+    }
+    source += "next: nop\njmp next\n";
+    ASSERT_TRUE(assembleText(source)) << error;
+    EXPECT_EQ(0x011, rom[0x200]);
+    EXPECT_EQ(0xa00 | 0, rom[0x202]);       // next is at 0x200
+}
+
+TEST_F(AssembleSourceTest, BoundaryPageAfterData) {
+    std::string source = "autopage on\n";
+    for (int i = 0; i < 0x1ff; i++) {
+        source += "dw 123\n";
+    }
+    source += "nop\nnop\n";
+    ASSERT_TRUE(assembleText(source)) << error;
+    EXPECT_EQ(0x000, rom[0x1ff]);
+    EXPECT_EQ(0x011, rom[0x200]);
+    EXPECT_EQ(0x000, rom[0x201]);
+}

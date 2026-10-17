@@ -233,6 +233,7 @@ table:  dw 123, start       ; raw 12 bit words
 | `org addr` | Continue at this address. The ROM has 4096 words, unused ones get `0xFFF`. |
 | `name equ value` | A name for a number (register, literal), usable everywhere a number is, also before the definition. |
 | `dw value, ...` | Raw 12 bit words. Values can be numbers, names or labels (a label keeps its full address). |
+| `firsthalf` | Moves on to the start of the next page if the address is in the second half of a page, because a `call` reaches only the first half. |
 | `autopage on` / `autopage off` | Puts `page n` in front of every `jmp` and `call` to a label on another page, until switched off. Off at the start. |
 
 The registers have names: `rtcc`, `pc`, `status`, `fsr` and `ra` to `re`. `w`, `m`,
@@ -248,7 +249,9 @@ address a piece of code stands at as the page it runs in, so:
 
 - A function on another page has to end with `retp`, which restores the page of
   the caller.
-- Code must not run from the end of one page into the next without a jump.
+- Code that runs on from the end of one page into the next gets a `page` at the
+  start of the new page. After an `org` it does not: the code that jumps there
+  sets the page.
 - An inserted `page` takes one cycle. Leave `autopage` off in code where the cycles
   count (the video lines) and write the pages by hand. A `page` you wrote
   right in front of a `jmp` is not doubled.
