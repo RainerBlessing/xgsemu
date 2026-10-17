@@ -79,6 +79,8 @@ private:
     Video* video;
     Cpu* cpu;
     Uint16* joystickr;
+    Uint16 pressedUnseen = 0;   // buttons pressed on the page that no frame has run with yet
+    Uint16 releaseDeferred = 0; // buttons released before a frame saw them
     Bu8763* sound;
     SDL_AudioDeviceID audioDevice;
     int audioSampleRate;

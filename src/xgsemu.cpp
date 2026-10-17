@@ -189,6 +189,13 @@ void XGSEmu::setJoystick(Uint16 mask, bool down) {
     if (joystickr) {
         if (down) {
             *joystickr |= mask;
+            pressedUnseen |= mask;
+            releaseDeferred &= ~mask;
+        } else if (pressedUnseen & mask) {
+            // On a slow device a whole tap can arrive between two emulated frames.
+            // The program only reads the joystick once per frame, so the release
+            // waits until at least one frame has seen the press.
+            releaseDeferred |= mask;
         } else {
             *joystickr &= ~mask;
         }
@@ -334,6 +341,11 @@ void XGSEmu::frame() {
         }
     }
     if (ran) {
+        if (joystickr) {
+            *joystickr &= ~releaseDeferred;
+        }
+        releaseDeferred = 0;
+        pressedUnseen = 0;
         updateTexture();
     }
     render();
