@@ -343,23 +343,20 @@ TEST_F(VideoThresholdTest, ASyncPulseOf4001CyclesStartsAFrame) {
     EXPECT_NE(0u, pixel(100, 2));
 }
 
-// The phase of a colour is the chroma plus the chroma of the colour burst (as the
-// code takes it), modulo 28 colours of the colour wheel.
-TEST_F(VideoPictureTest, ColoursFollowTheChromaAndThePhaseOfTheBurst) {
-    struct Expectation {
-        int chroma;
+// The colour of a fragment is its phase against the colour burst: chroma minus the
+// chroma of the burst, on a wheel of 30 steps of 12 degrees. With burst 0 the
+// chroma 0 is yellow, 5 red and 10 magenta (colour chart of Rem-Pac, photo of
+// figure 11.33(a) in the book); with burst 14 the chroma 0..14 are the other
+// half of the wheel, from blue to yellow (figure 11.33(b)).
+class VideoColourTest : public VideoPictureTest {
+protected:
+    struct Rgb {
         int red, green, blue;
     };
-    // the colour wheel at index 2 * chroma, at full luminance: base colour * 255 / 256
-    static const Expectation expected[] = {
-        {1, 0, 127, 254},      // index 2: (0, 128, 255)
-        {4, 254, 0, 254},      // index 8: (255, 0, 255)
-        {7, 254, 254, 0},      // index 14: (255, 255, 0)
-        {13, 0, 254, 169},     // index 26: (0, 255, 170)
-        {14, 0, 254, 254},     // index 28 wraps to 0: (0, 255, 255)
-    };
-    for (const Expectation& e : expected) {
-        SCOPED_TRACE(e.chroma);
+
+    // The colour of a picture fragment of the given chroma at full luminance,
+    // in a line whose colour burst has the chroma "burst".
+    Rgb colourOf(int chroma, int burst) {
         Video fresh;
         int clock = 0;
         for (int pass = 0; pass < 2; pass++) {
@@ -368,14 +365,80 @@ TEST_F(VideoPictureTest, ColoursFollowTheChromaAndThePhaseOfTheBurst) {
         }
         signal(fresh, clock, 20, SYNC);
         signal(fresh, clock, 400, BLANK);
-        signal(fresh, clock, 45, (e.chroma << 4) | 15);
-        signal(fresh, clock, 4400, SYNC);
+        signal(fresh, clock, 45, (burst << 4) | 5);        // the colour burst follows the breezeway
+        signal(fresh, clock, 200, (chroma << 4) | 15);     // the picture
+        signal(fresh, clock, 4000, SYNC);
         int row = lastDrawnRow(fresh);
-        ASSERT_GE(row, 0);
-        Uint8 red, green, blue;
-        SDL_GetRGB(pixel(fresh, 100, row), fresh.getScreen()->format, &red, &green, &blue);
-        EXPECT_EQ(e.red, red);
-        EXPECT_EQ(e.green, green);
-        EXPECT_EQ(e.blue, blue);
+        Rgb colour = {-1, -1, -1};
+        if (row >= 0) {
+            Uint8 red, green, blue;
+            SDL_GetRGB(pixel(fresh, 100, row), fresh.getScreen()->format, &red, &green, &blue);
+            colour.red = red;
+            colour.green = green;
+            colour.blue = blue;
+        }
+        return colour;
+    }
+
+    // base colour of the wheel (0..255) at full luminance: base * 255 / 256
+    static int full(int base) {
+        return base * 255 / 256;
+    }
+
+    void expectColour(int chroma, int burst, int red, int green, int blue) {
+        SCOPED_TRACE(::testing::Message() << "chroma " << chroma << ", burst " << burst);
+        Rgb colour = colourOf(chroma, burst);
+        EXPECT_EQ(full(red), colour.red);
+        EXPECT_EQ(full(green), colour.green);
+        EXPECT_EQ(full(blue), colour.blue);
+    }
+};
+
+TEST_F(VideoColourTest, WithBurstZeroTheChromaGoesFromYellowThroughRedAndMagentaToBlue) {
+    expectColour(0, 0, 255, 255, 0);      // yellow
+    expectColour(1, 0, 255, 204, 0);      // yellow-orange
+    expectColour(2, 0, 255, 153, 0);      // orange
+    expectColour(5, 0, 255, 0, 0);        // red
+    expectColour(8, 0, 255, 0, 153);      // pink
+    expectColour(10, 0, 255, 0, 255);     // magenta
+    expectColour(12, 0, 153, 0, 255);     // violet
+    expectColour(14, 0, 51, 0, 255);      // blue-violet, the "light blueish" of the first level of Rem-Pac
+}
+
+TEST_F(VideoColourTest, WithBurstFourteenTheChromaGoesFromBlueThroughGreenToYellow) {
+    expectColour(0, 14, 0, 51, 255);      // blue
+    expectColour(7, 14, 0, 255, 102);     // green-cyan
+    expectColour(14, 14, 255, 255, 0);    // yellow: the same as chroma 0 with burst 0
+}
+
+TEST_F(VideoColourTest, OnlyTheDifferenceToTheBurstCounts) {
+    Rgb a = colourOf(3, 1);
+    Rgb b = colourOf(5, 3);
+    Rgb c = colourOf(14, 12);
+    EXPECT_EQ(a.red, b.red);
+    EXPECT_EQ(a.green, b.green);
+    EXPECT_EQ(a.blue, b.blue);
+    EXPECT_EQ(a.red, c.red);
+    EXPECT_EQ(a.green, c.green);
+    EXPECT_EQ(a.blue, c.blue);
+}
+
+TEST_F(VideoColourTest, TheBurstIsSubtractedNotAdded) {
+    Rgb a = colourOf(3, 1);   // difference +2
+    Rgb b = colourOf(1, 3);   // difference -2, as much further the other way
+    EXPECT_FALSE(a.red == b.red && a.green == b.green && a.blue == b.blue);
+}
+
+TEST_F(VideoColourTest, ANegativeDifferenceWrapsAroundTheWheel) {
+    expectColour(0, 15, 0, 0, 255);       // 15 steps back from yellow is blue
+}
+
+TEST_F(VideoColourTest, ChromaFifteenIsGreyWhateverTheBurst) {
+    for (int burst = 0; burst < 16; burst++) {
+        SCOPED_TRACE(burst);
+        Rgb colour = colourOf(15, burst);
+        EXPECT_EQ(255, colour.red);     // grey is the luminance itself, not scaled
+        EXPECT_EQ(colour.red, colour.green);
+        EXPECT_EQ(colour.green, colour.blue);
     }
 }

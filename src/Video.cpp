@@ -50,35 +50,6 @@ screen = SDL_CreateRGBSurface(0, 560, 525, 32,
 	intensity[13] = 204;
 	intensity[14] = 230;
 	intensity[15] = 255;
-
-	colours[0] = SDL_MapRGB( screen->format, 0, 255, 255);
-	colours[1] = SDL_MapRGB( screen->format, 0, 191, 255);
-	colours[2] = SDL_MapRGB( screen->format, 0, 128, 255);
-	colours[3] = SDL_MapRGB( screen->format, 0, 64, 255);
-	colours[4] = SDL_MapRGB( screen->format, 0, 0, 255);
-	colours[5] = SDL_MapRGB( screen->format, 64, 0, 255);
-	colours[6] = SDL_MapRGB( screen->format, 128, 0, 255);
-	colours[7] = SDL_MapRGB( screen->format, 191, 0, 255);
-	colours[8] = SDL_MapRGB( screen->format, 255, 0, 255);
-	colours[9] = SDL_MapRGB( screen->format, 255, 0, 191);
-	colours[10] = SDL_MapRGB( screen->format, 255, 0, 128);
-	colours[11] = SDL_MapRGB( screen->format, 255, 0, 64);
-	colours[12] = SDL_MapRGB( screen->format, 255, 0, 0);
-	colours[13] = SDL_MapRGB( screen->format, 255, 128, 0);
-	colours[14] = SDL_MapRGB( screen->format, 255, 255, 0);
-	colours[15] = SDL_MapRGB( screen->format, 0, 255, 255);
-	colours[16] = SDL_MapRGB( screen->format, 0, 255, 219);
-	colours[17] = SDL_MapRGB( screen->format, 0, 255, 182);
-	colours[18] = SDL_MapRGB( screen->format, 0, 255, 146);
-	colours[19] = SDL_MapRGB( screen->format, 0, 255, 109);
-	colours[20] = SDL_MapRGB( screen->format, 0, 255, 73);
-	colours[21] = SDL_MapRGB( screen->format, 0, 255, 36);
-	colours[22] = SDL_MapRGB( screen->format, 0, 255, 0);
-	colours[23] = SDL_MapRGB( screen->format, 0, 255, 43);
-	colours[24] = SDL_MapRGB( screen->format, 0, 255, 85);
-	colours[25] = SDL_MapRGB( screen->format, 0, 255, 128);
-	colours[26] = SDL_MapRGB( screen->format, 0, 255, 170);
-	colours[27] = SDL_MapRGB( screen->format, 0, 255, 213);
 }
 
 
@@ -111,6 +82,14 @@ const double HORIZONTAL_SCALE = 1.1;
 
 // A picture line is drawn twice, the line counter stops here.
 const int LAST_LINE = 519;
+
+// The colour wheel: the phase of a colour against the colour burst. The hardware
+// delays the colour signal in steps of about 12 degrees, so the wheel has 30 steps.
+// With the burst at chroma 0 the chroma 0 is yellow (60 degrees of hue), 5 is red,
+// 10 is magenta and 14 blue-violet (colour chart of Rem-Pac, figure 11.33 of the book).
+const int WHEEL_STEPS = 30;
+const int STEP_DEGREES = 12;
+const int YELLOW_DEGREES = 60;
 
 // A fragment with luminance 0 is a sync pulse.
 bool isSync(unsigned short colour)
@@ -206,18 +185,42 @@ int Video::toScreenColumn(int position) const
 	return column;
 }
 
-// The colour of a fragment: the chroma is the phase against the colour burst,
-// the luminance the intensity. Chroma 15 is grey.
+// The colour of the wheel (red, green and blue as 0..255) for the phase of a
+// colour against the colour burst, in steps of the wheel. The colour is fully
+// saturated, the hue goes down with the phase.
+void Video::wheelColour(int phase, int* red, int* green, int* blue)
+{
+	int hue = (YELLOW_DEGREES - STEP_DEGREES * phase) % 360;
+	if (hue < 0) hue += 360;
+	int rising = 255 * (hue % 60) / 60;
+	int falling = 255 - rising;
+	switch (hue / 60)
+	{
+		case 0:  *red = 255;     *green = rising;  *blue = 0;       break;
+		case 1:  *red = falling; *green = 255;     *blue = 0;       break;
+		case 2:  *red = 0;       *green = 255;     *blue = rising;  break;
+		case 3:  *red = 0;       *green = falling; *blue = 255;     break;
+		case 4:  *red = rising;  *green = 0;       *blue = 255;     break;
+		default: *red = 255;     *green = 0;       *blue = falling; break;
+	}
+}
+
+// The colour of a fragment: the chroma is the phase against the colour burst, the
+// luminance the intensity. Chroma 15 is grey.
 Uint32 Video::fragmentPixel(unsigned short colour) const
 {
 	Uint32 r, g, b;
-	Uint32 base = colours[(((colour >> 4) & 0xf) + burst) % 28];
 	Uint32 i = intensity[colour & 0xf];
-	if (colour >> 4 != 15)
+	int chroma = (colour >> 4) & 0xf;
+	if (chroma != 15)
 	{
-		r = (Uint32)(((base >> 16) & 0xff) * i) >> 8;
-		g = (Uint32)(((base >> 8) & 0xff) * i) >> 8;
-		b = (Uint32)(((base) & 0xff) * i) >> 8;
+		int phase = (chroma - (int)burst) % WHEEL_STEPS;
+		if (phase < 0) phase += WHEEL_STEPS;
+		int red, green, blue;
+		wheelColour(phase, &red, &green, &blue);
+		r = (Uint32)(red * i) >> 8;
+		g = (Uint32)(green * i) >> 8;
+		b = (Uint32)(blue * i) >> 8;
 	}
 	else r = g = b = i;
 	return SDL_MapRGB(screen->format, r, g, b);

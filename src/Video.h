@@ -62,10 +62,6 @@ private:
 	int x0, x, y;        // pixel position of the fragment that is drawn
 	Uint32 burst;        // colour of the colour burst, reference for the phase
 	/**
-	 * 28 (2*14) different colours
-	 */
-	Uint32 colours[28];
-	/**
 	        * Intensity levels
 	        */
 	Uint32 intensity[16];
@@ -75,6 +71,7 @@ private:
 	void startLine();
 	void measureFragment(int cycle, int previous);
 	int toScreenColumn(int position) const;
+	static void wheelColour(int phase, int* red, int* green, int* blue);
 	Uint32 fragmentPixel(unsigned short colour) const;
 	void fillRow(int row, int from, int to, Uint32 pixel);
 	void drawFragment(int cycle, int previous);
