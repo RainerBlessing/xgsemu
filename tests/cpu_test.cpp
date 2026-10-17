@@ -1213,3 +1213,23 @@ TEST_F(CpuModeTest, ThePortBitsOfAPinAreOnlySeenByTheOutsideWorldIfItIsAnOutput)
     run(0x500 | (5 << 5) | 9);
     EXPECT_EQ(1, videoMock->calls);
 }
+
+// Every setting of the prescaler: the RTCC counts the cycles divided by the ratio.
+TEST_F(CpuTimerTest, EveryPrescalerSettingCountsTheCyclesDividedByItsRatio) {
+    for (int psa = 0; psa < 2; psa++) {
+        for (int ps = 0; ps < 8; ps++) {
+            SCOPED_TRACE(testing::Message() << "PSA " << psa << " PS " << ps);
+            cpu->reset();
+            std::vector<USHORT> words = setOption(0xc0 | (psa << 3) | ps);
+            words.push_back(CLR_RTCC);
+            program(words);
+            // program() clears only 64 words, the test runs more instructions
+            for (int i = 64; i < 1100; i++) {
+                setRomValue(i, NOP);
+            }
+            run(3 + 1000);
+            int ratio = psa ? 1 : (2 << ps);
+            EXPECT_EQ((1000 / ratio) & 0xff, rtcc());
+        }
+    }
+}
