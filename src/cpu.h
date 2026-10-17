@@ -126,9 +126,10 @@ private:
 	unsigned char* w;
 	USHORT Stack[8];
 	USHORT* sp; //stackpointer
-	unsigned char mode;
+	unsigned char mode; // five bits, 0x1F after a reset
 	unsigned char option; //8 bit
-	unsigned char Tris[5];
+	unsigned char Tris[5]; // data direction of the ports RA..RE: 1 is an input
+	unsigned char portConfig[3][5]; // pull-ups (MODE 0xE), input levels (0xD), Schmitt triggers (0xC)
 	unsigned char RInput[5];
 	Uint32 t1;
 	// Unsigned, because the counter runs over after about 27 seconds at 80 MHz.
@@ -180,6 +181,8 @@ private:
 	void sb(USHORT mne);
 	void registerInstruction(USHORT mne);
 	void controlInstruction(USHORT mne);
+	void movPortControl(USHORT mne);
+	unsigned char* controlRegister(int port);
 	void setW(unsigned char value);
 	void setRegister(USHORT fr, unsigned char value);
 	void skipIfZero(unsigned char value);

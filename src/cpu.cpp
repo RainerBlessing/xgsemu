@@ -58,13 +58,16 @@ void Cpu::setSound(Bu8763* sound)
 void Cpu::reset()
 {
 	memset (RAM, 0, 262);
-	memset (Tris, 0, sizeof(Tris));
+	// after a reset all pins are inputs without pull-up and the MODE register selects the
+	// write access to the data direction registers
+	memset (Tris, 0xff, sizeof(Tris));
+	memset (portConfig, 0xff, sizeof(portConfig));
 	memset (Stack, 0, sizeof(Stack));
 	sramPage = 0;
 	sramActive = false;
 	joystickClockHigh = false;
 	joystickBit = 0;
-	mode = 0;
+	mode = 0x1f;
 	option = 0xff; // all bits 1: the prescaler belongs to the watchdog
 	memset (SRAM, 0, 131072*sizeof(unsigned char));
 	cycle = 0;
@@ -690,6 +693,41 @@ void Cpu::movWRrFr(USHORT mne)
 	next();
 }
 
+// The control register of the port that the MODE register selects, or NULL for the registers
+// that are not emulated (timers, comparator, wakeup).
+unsigned char* Cpu::controlRegister(int port)
+{
+	switch (mode & 0xf)
+	{
+		case 0xf:
+			return &Tris[port];
+		case 0xe:
+			return &portConfig[0][port];
+		case 0xd:
+			return &portConfig[1][port];
+		case 0xc:
+			// only the ports B..E have Schmitt triggers
+			return port > 0 ? &portConfig[2][port] : NULL;
+		default:
+			return NULL;
+	}
+}
+
+// mov !rx,w: bit 4 of the MODE register decides whether W is written to the control register
+// (1) or the control register is read into W (0).
+void Cpu::movPortControl(USHORT mne)
+{
+	unsigned char* control = controlRegister(mne - 5);
+	if (control == NULL)
+	{
+		return;
+	}
+	if (mode & 0x10)
+		*control = *w;
+	else
+		*w = *control;
+}
+
 // The instructions without a register operand.
 void Cpu::controlInstruction(USHORT mne)
 {
@@ -716,16 +754,16 @@ void Cpu::controlInstruction(USHORT mne)
 		setZero(true);
 	}
 	else if (mne == 0x42)
-	{ //mov w,m 0000 0100 0010
-		*w = mode;
+	{ //mov w,m 0000 0100 0010, the high nibble of W is cleared
+		*w = mode & 0xf;
 	}
 	else if (mne == 0x43)
-	{ //mov m,w 0000 0100 011
-		mode = *w;
+	{ //mov m,w 0000 0100 011, the lower five bits
+		mode = *w & 0x1f;
 	}
 	else if (mne >> 4 == 0x5)
-	{ //mov m,#lit 0000 0101 kkkk
-		mode = mne & 0xf;
+	{ //mov m,#lit 0000 0101 kkkk, the lower four bits
+		mode = (mode & 0x10) | (mne & 0xf);
 	}
 	else if (mne == 0x2)
 	{ //mov !option,w 0000 0000 0010
@@ -749,10 +787,7 @@ void Cpu::controlInstruction(USHORT mne)
 	}
 	else if (mne >= 0x5 && mne <= 0x9)
 	{ //mov !rx,w
-		if (mode == 0xf)
-		{
-			Tris[mne - 5] = *w;
-		}
+		movPortControl(mne);
 	}
 	// nop, clr !WDT and what is not implemented (reti, retiw, sleep) take a cycle
 	next(cycles);

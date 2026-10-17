@@ -519,7 +519,7 @@ TEST_F(CpuSramTest, Ra7SelectsTheUpperHalfOfTheSram) {
     EXPECT_EQ(0x00, cpu->getSRAM()[(0xfff << 4) | 0x3]);
 }
 
-TEST_F(CpuTest, ResetClearsTheModeRegister) {
+TEST_F(CpuTest, ResetPutsTheModeRegisterBackTo1F) {
     unsigned char* ram = cpu->getRAM();
     *cpu->getPC() = 0;
     setRomValue(0, 0x055);    // mode #5
@@ -527,9 +527,9 @@ TEST_F(CpuTest, ResetClearsTheModeRegister) {
     cpu->reset();
     *cpu->getPC() = 0;
     ram[261] = 0xaa;
-    setRomValue(0, 0x042);    // mov w,m
+    setRomValue(0, 0x042);    // mov w,m: the high nibble of W is cleared
     cpu->execute();
-    EXPECT_EQ(0, ram[261]);
+    EXPECT_EQ(0x0f, ram[261]);
 }
 
 // Result and flags of the instructions with a register operand. The register
@@ -1021,4 +1021,195 @@ TEST_F(CpuResultTest, WithTheCfBitSetTheCarryIsNoInput) {
     cpu->setFusex(0xfff);            // CF = 1, the default
     check({"add fr,w", 0x1e0 | 0x0c, 0x01, 0x01, C, NONE, 0x02, C, 0});
     check({"sub fr,w", 0x0a0 | 0x0c, 0x03, 0x05, 0, NONE, 0x02, C, C});
+}
+
+// The MODE register of the SX52 (data sheet 3.3): five bits, 0x1F after a reset. It selects what
+// "mov !rx,W" accesses: the low four bits pick the control register (0xF the data direction, 0xE
+// the pull-ups, 0xD the input levels, 0xC the Schmitt triggers) and bit 4 the direction of the
+// transfer: 1 writes W to the register, 0 reads the register into W. "mov M,#lit" only sets the
+// lower four bits, "mov M,W" the lower five, "mov W,M" clears the high nibble of W.
+// All control registers are 0xFF after a reset: every pin is an input.
+class CpuModeTest : public CpuTest {
+protected:
+    enum {
+        MOV_W_M = 0x042,
+        MOV_M_W = 0x043,
+        MOV_RA_W = 0x005       // mov !ra,w, port n is 5 + n
+    };
+
+    void run(USHORT opcode) {
+        *cpu->getPC() = 0x100;
+        setRomValue(0x100, opcode);
+        cpu->execute();
+    }
+
+    // W = value, MODE = mode (all five bits)
+    void setMode(int mode) {
+        cpu->getRAM()[261] = mode;
+        run(MOV_M_W);
+    }
+
+    int w() {
+        return cpu->getRAM()[261];
+    }
+
+    void setW(int value) {
+        cpu->getRAM()[261] = value;
+    }
+};
+
+TEST_F(CpuModeTest, TheModeRegisterIs1FAfterAReset) {
+    run(MOV_W_M);
+    EXPECT_EQ(0x0f, w());        // the high nibble of W is cleared, bit 4 is not visible
+    // but it is there: mov !ra,w writes
+    setW(0x3c);
+    run(MOV_RA_W);
+    setMode(0x0f);               // now read
+    setW(0);
+    run(MOV_RA_W);
+    EXPECT_EQ(0x3c, w());
+}
+
+TEST_F(CpuModeTest, AllControlRegistersAreAllOnesAfterAReset) {
+    setMode(0x0f);
+    for (int port = 0; port < 5; port++) {
+        setW(0);
+        run(MOV_RA_W + port);
+        EXPECT_EQ(0xff, w()) << "direction of port " << port;
+    }
+    setMode(0x0e);
+    setW(0);
+    run(MOV_RA_W);
+    EXPECT_EQ(0xff, w()) << "pull-ups";
+}
+
+TEST_F(CpuModeTest, MovMWSetsTheLowerFiveBitsAndMovWMReadsTheLowerFour) {
+    setMode(0xff);
+    run(MOV_W_M);
+    EXPECT_EQ(0x0f, w());
+    setMode(0x05);               // bit 4 is 0 now
+    run(MOV_W_M);
+    EXPECT_EQ(0x05, w());
+}
+
+TEST_F(CpuModeTest, MovMLiteralKeepsBitFour) {
+    setMode(0x00);               // read
+    run(0x05f);                  // mov m,#0xf: the low four bits only
+    setW(0);
+    run(MOV_RA_W);               // still a read: W = direction (0xff)
+    EXPECT_EQ(0xff, w());
+}
+
+TEST_F(CpuModeTest, WritingTheDirectionRegisterNeedsBitFourOfTheMode) {
+    setMode(0x1f);               // write the direction, like Rem-Pac does with "mov M,W" and TRIS = $1F
+    setW(0x0c);
+    run(MOV_RA_W);
+    setMode(0x0f);               // read it back
+    setW(0);
+    run(MOV_RA_W);
+    EXPECT_EQ(0x0c, w());
+}
+
+TEST_F(CpuModeTest, WithBitFourClearMovRxWOnlyReadsAndLeavesTheRegisterAlone) {
+    setMode(0x1f);
+    setW(0x0c);
+    run(MOV_RA_W);
+    setMode(0x0f);
+    setW(0xaa);
+    run(MOV_RA_W);               // reads 0x0c into W, does not write 0xaa
+    EXPECT_EQ(0x0c, w());
+    run(MOV_RA_W);
+    EXPECT_EQ(0x0c, w());
+}
+
+TEST_F(CpuModeTest, EachPortHasItsOwnRegister) {
+    setMode(0x1f);
+    for (int port = 0; port < 5; port++) {
+        setW(0x10 + port);
+        run(MOV_RA_W + port);
+    }
+    setMode(0x0f);
+    for (int port = 0; port < 5; port++) {
+        setW(0);
+        run(MOV_RA_W + port);
+        EXPECT_EQ(0x10 + port, w()) << port;
+    }
+}
+
+TEST_F(CpuModeTest, ThePullupRegistersAreWrittenAndReadSeparately) {
+    setMode(0x1e);
+    setW(0x03);
+    run(MOV_RA_W);
+    setMode(0x1f);
+    setW(0x77);
+    run(MOV_RA_W);               // the direction register is another one
+    setMode(0x0e);
+    setW(0);
+    run(MOV_RA_W);
+    EXPECT_EQ(0x03, w());
+    setMode(0x0f);
+    run(MOV_RA_W);
+    EXPECT_EQ(0x77, w());
+}
+
+TEST_F(CpuModeTest, TheInputLevelAndSchmittTriggerRegistersAreSeparateRegisters) {
+    setMode(0x1d);               // input levels
+    setW(0x11);
+    run(MOV_RA_W + 1);
+    setMode(0x1c);               // Schmitt triggers
+    setW(0x22);
+    run(MOV_RA_W + 1);
+    setMode(0x0d);
+    run(MOV_RA_W + 1);
+    EXPECT_EQ(0x11, w());
+    setMode(0x0c);
+    run(MOV_RA_W + 1);
+    EXPECT_EQ(0x22, w());
+}
+
+TEST_F(CpuModeTest, AResetPutsTheModeAndTheControlRegistersBack) {
+    setMode(0x1f);
+    setW(0x00);
+    run(MOV_RA_W);
+    setMode(0x00);
+    cpu->reset();
+    setMode(0x0f);               // read the direction of port A
+    setW(0);
+    run(MOV_RA_W);
+    EXPECT_EQ(0xff, w());
+    run(MOV_W_M);
+    cpu->reset();
+    run(MOV_W_M);
+    EXPECT_EQ(0x0f, w());
+}
+
+TEST_F(CpuModeTest, IreadReplacesTheLowerFourBitsOfTheModeAndKeepsBitFour) {
+    setMode(0x1b);               // M = 0xb for the address, bit 4 set
+    setW(0x34);
+    setRomValue(0xb34, 0x9a5);
+    run(0x041);                  // iread: W = 0xa5 and M = 9 (the upper bits of the word)
+    EXPECT_EQ(0xa5, w());
+    run(MOV_W_M);
+    EXPECT_EQ(0x09, w());
+    run(0x05f);                  // mov m,#0xf: bit 4 is still set, so this writes
+    setW(0x42);
+    run(MOV_RA_W);
+    setMode(0x0f);
+    setW(0);
+    run(MOV_RA_W);
+    EXPECT_EQ(0x42, w());
+}
+
+TEST_F(CpuModeTest, ThePortBitsOfAPinAreOnlySeenByTheOutsideWorldIfItIsAnOutput) {
+    // after a reset all pins are inputs: setb RE.4 changes the latch but not the video
+    cpu->getRAM()[9] = 0x01;
+    run(0x500 | (4 << 5) | 9);
+    EXPECT_EQ(0x11, cpu->getRAM()[9]);
+    EXPECT_EQ(0, videoMock->calls);
+    // an output pin reaches it
+    setMode(0x1f);
+    setW(0x00);
+    run(MOV_RA_W + 4);
+    run(0x500 | (5 << 5) | 9);
+    EXPECT_EQ(1, videoMock->calls);
 }
