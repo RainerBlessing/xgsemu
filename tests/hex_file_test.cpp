@@ -350,3 +350,39 @@ TEST_F(HexFileWriteTest, EveryRecordHasACorrectChecksum) {
 TEST_F(HexFileWriteTest, ADirectoryThatDoesNotExistIsAnError) {
     EXPECT_FALSE(HexFile::writeFile("no_such_directory/x.hex", &rom.sx));
 }
+
+// The reason of a refused file, for the user to read.
+TEST_F(HexFileReadTest, ABrokenRecordIsReportedWithItsLine) {
+    std::string line = hexRecord(0x0000, 0, {0x01, 0x02});
+    line[line.size() - 2] = line[line.size() - 2] == '0' ? '1' : '0';
+    TestFile file(".hex", hexRecord(0x0000, 0, {0x01, 0x00}) + line + END);
+    std::string error;
+    EXPECT_FALSE(HexFile::readFile(file.name(), &rom.sx, &error));
+    EXPECT_EQ("line 2: incorrect checksum", error);
+}
+
+TEST_F(HexFileReadTest, AMissingFileIsReportedWithTheReasonOfTheSystem) {
+    std::string error;
+    EXPECT_FALSE(HexFile::readFile("no_such_file.hex", &rom.sx, &error));
+    EXPECT_NE(std::string::npos, error.find("No such file")) << error;
+}
+
+TEST_F(HexFileReadTest, AnAddressBehindTheImageIsReported) {
+    TestFile file(".hex", hexRecord(ARRAY_SIZE * 2, 0, {0x01}) + END);
+    std::string error;
+    EXPECT_FALSE(HexFile::readFile(file.name(), &rom.sx, &error));
+    EXPECT_EQ("line 1: address 2224 is out of bounds", error);
+}
+
+TEST_F(HexFileReadTest, NothingIsSaidAboutAFileThatIsFine) {
+    TestFile file(".hex", hexRecord(0x0000, 0, {0x01, 0x00}) + END);
+    std::string error = "left over";
+    EXPECT_TRUE(HexFile::readFile(file.name(), &rom.sx, &error));
+    EXPECT_EQ("left over", error);
+}
+
+TEST_F(HexFileWriteTest, AFileThatCannotBeWrittenIsReported) {
+    std::string error;
+    EXPECT_FALSE(HexFile::writeFile("no_such_directory/x.hex", &rom.sx, &error));
+    EXPECT_NE(std::string::npos, error.find("No such file")) << error;
+}

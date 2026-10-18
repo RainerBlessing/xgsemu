@@ -7,9 +7,36 @@
 */
 
 
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <memory>
 #include "hex_file.h"
+
+namespace
+{
+bool fail( std::string * error, const std::string & message )
+{
+	if ( error != NULL )
+		*error = message;
+	return false;
+}
+
+std::string lineError( int number, const char * message )
+{
+	char text[ 32 ];
+	snprintf( text, sizeof( text ), "line %d: ", number );
+	return std::string( text ) + message;
+}
+
+struct FileCloser
+{
+	void operator() ( FILE * f ) const
+	{
+		fclose( f );
+	}
+};
+}
 
 int HexFile::parse_hex_digit( char **p )
 {
@@ -41,137 +68,81 @@ int HexFile::parse_hex_digits( char **p, int digits, u8 * checksum )
 	return ( r );
 }
 
-bool HexFile::readFile(const char *fn, sx_t * sx )
+bool HexFile::readFile(const char *fn, sx_t * sx, std::string * error )
 {
-	bool r = 0;
-	bool seen_end = false;
-	FILE *f = NULL;
-	char *p;
+	FILE *f = fopen( fn, "r" );
+	if ( !f )
+		return fail( error, strerror( errno ) );
+	std::unique_ptr<FILE, FileCloser> file( f );
+
 	// a record has at most 255 data bytes: ':', 2 + 4 + 2 + 510 + 2 digits, a line ending and the 0
 	char buf[ 600 ];
-	int i;
-	u8 checksum;
-	int byte_count;
-	int address;
-	int record_type;
-	int byte;
-
-	f = fopen( fn, "r" );
-	if ( !f )
-	{
-		perror( fn );
-		goto error;
-	}
 
 	sx->rom[ FUSEX_LOC ] = 0xfff;
 	sx->rom[ FUSE_LOC ] = 0xfff;
 
-	for ( i = 0; i < SX_MAX_ROM_SIZE; i++ )
+	for ( int i = 0; i < SX_MAX_ROM_SIZE; i++ )
 		sx->rom[ i ] = 0xfff;
 
-	for ( i = 0; i < SX_ID_SIZE; i++ )
+	for ( int i = 0; i < SX_ID_SIZE; i++ )
 		sx->rom[ ID_LOC + i ] = 0xfff;
 
+	int lineNumber = 0;
 	while ( fgets( &buf[ 0 ], sizeof( buf ), f ) )
 	{
+		lineNumber++;
 		size_t length = strlen( buf );
 		if ( length == sizeof( buf ) - 1 && buf[ length - 1 ] != '\n' )
 		{
 			int next = fgetc( f );
 			if ( next != EOF )
-			{
-				fprintf( stderr, "error reading hex file: line too long\n" );
-				goto error;
-			}
+				return fail( error, lineError( lineNumber, "line too long" ) );
 		}
-		checksum = 0;
-		p = &buf[ 0 ];
+		u8 checksum = 0;
+		char *p = &buf[ 0 ];
 		while ( ( *p ) && ( ( *p ) != ':' ) )
 			p++;
 		if ( *p != ':' )
-		{
-			fprintf( stderr, "warning: spurious line in hex file\n"
-			       );
-			continue;
-		}
+			continue;           /* a line that is no record is ignored */
 		p++;
-		byte_count = parse_hex_digits( &p, 2, &checksum );
+		int byte_count = parse_hex_digits( &p, 2, &checksum );
 		if ( byte_count < 0 )
-		{
-			fprintf( stderr,
-			         "error reading hex file: bogus byte count\n"
-			       );
-			goto error;
-		}
-		address = parse_hex_digits( &p, 4, &checksum );
+			return fail( error, lineError( lineNumber, "bogus byte count" ) );
+		int address = parse_hex_digits( &p, 4, &checksum );
 		if ( address < 0 )
-		{
-			fprintf( stderr, "error reading hex file: bogus address\n"
-			       );
-			goto error;
-		}
-		record_type = parse_hex_digits( &p, 2, &checksum );
+			return fail( error, lineError( lineNumber, "bogus address" ) );
+		int record_type = parse_hex_digits( &p, 2, &checksum );
 		if ( record_type < 0 )
-		{
-			fprintf( stderr,
-			         "error reading hex file: bogus record type\n"
-			       );
-			goto error;
-		}
+			return fail( error, lineError( lineNumber, "bogus record type" ) );
 		if ( record_type == 2 || record_type == 4 )
 		{
 			/* The extended address records only say "address 0", as gpasm writes them. Any
 			   other address would put the data somewhere else. */
-			for ( i = 0; i < byte_count; i++ )
+			for ( int i = 0; i < byte_count; i++ )
 			{
-				byte = parse_hex_digits( &p, 2, &checksum );
+				int byte = parse_hex_digits( &p, 2, &checksum );
 				if ( byte < 0 )
-				{
-					fprintf( stderr,
-					         "error reading hex file: bogus data byte in record type %02x\n",
-					         record_type );
-					goto error;
-				}
+					return fail( error, lineError( lineNumber, "bogus data byte" ) );
 				if ( byte != 0 )
-				{
-					fprintf( stderr,
-					         "error reading hex file: extended addresses are not supported\n" );
-					goto error;
-				}
+					return fail( error, lineError( lineNumber, "extended addresses are not supported" ) );
 			}
 			continue;
 		}
 		if ( record_type > 1 )
-		{
-			fprintf( stderr,
-			         "warning: unknown record type %02x in hex file\n",
-			         record_type );
-			continue;
-		}
+			continue;           /* the other record types are ignored */
 		if ( ( record_type == 1 ) && ( byte_count != 0 ) )
+			return fail( error, lineError( lineNumber, "end record with data bytes" ) );
+		for ( int i = 0; i < byte_count; i++ )
 		{
-			fprintf( stderr,
-			         "error reading hex file: end record with data bytes\n"
-			       );
-			goto error;
-		}
-		for ( i = 0; i < byte_count; i++ )
-		{
-			byte = parse_hex_digits( &p, 2, &checksum );
+			int byte = parse_hex_digits( &p, 2, &checksum );
 			if ( byte < 0 )
-			{
-				fprintf( stderr,
-				         "error reading hex file: bogus data byte for addr %04x\n",
-				         address + i );
-				goto error;
-			}
+				return fail( error, lineError( lineNumber, "bogus data byte" ) );
 			/* behind the fuse words the SX-Key writes more words of its own */
 			if ( ( address + i ) >= ( ARRAY_SIZE * 2 ) )
 			{
-				fprintf( stderr,
-				         "error reading hex file: address %04x out of boundsx\n",
-				         address + i );
-				goto error;
+				char message[ 48 ];
+				snprintf( message, sizeof( message ), "address %04x is out of bounds", address + i );
+				return fail( error, lineError( lineNumber, message ) );
 			}
 			if ( ( address + i ) & 1 )
 				sx->rom[ ( address + i ) / 2 ] =
@@ -182,43 +153,23 @@ bool HexFile::readFile(const char *fn, sx_t * sx )
 				    ( sx->rom[ ( address + i ) / 2 ] & 0xff00 )
 				    + ( byte );
 		}
-		byte = parse_hex_digits( &p, 2, &checksum );
+		int byte = parse_hex_digits( &p, 2, &checksum );
 		if ( byte < 0 )
-		{
-			fprintf( stderr, "error reading hex file: bogus checksum\n" );
-			goto error;
-		}
+			return fail( error, lineError( lineNumber, "bogus checksum" ) );
 		if ( checksum != 0 )
-		{
-			fprintf( stderr,
-			         "error reading hex file: incorrect checksum\n" );
-			goto error;
-		}
+			return fail( error, lineError( lineNumber, "incorrect checksum" ) );
 		if ( record_type == 1 )
-		{
-			seen_end = true;       /* logical end of file */
-			break;
-		}
+			break;              /* logical end of file */
 	}
 
 	if ( ferror( f ) )
-	{
-		perror( fn );
-		goto error;
-	}
-	if ( !seen_end )
-		fprintf( stderr, "warning: no end record in hex file\n" );
+		return fail( error, strerror( errno ) );
 
 	/* the words of the SX have 12 bits */
-	for ( i = 0; i <= FUSEX_LOC; i++ )
+	for ( int i = 0; i <= FUSEX_LOC; i++ )
 		sx->rom[ i ] &= 0x0fff;
 
-	r = 1;
-
-error:
-	if ( f )
-		fclose( f );
-	return ( r );
+	return true;
 }
 
 
@@ -229,19 +180,14 @@ void HexFile::writeByte( FILE * f, u8 byte, u8 * checksum )
 		*checksum += byte;
 }
 
-bool HexFile::writeFile( const char *fn, sx_t * sx )
+bool HexFile::writeFile( const char *fn, sx_t * sx, std::string * error )
 {
-	FILE *f = NULL;
-	bool r = false;
 	int i, j;
 	u8 checksum;
 
-	f = fopen( fn, "w" );
+	FILE *f = fopen( fn, "w" );
 	if ( !f )
-	{
-		perror( fn );
-		goto error;
-	}
+		return fail( error, strerror( errno ) );
 	for ( i = 0; i < SX_MAX_ROM_SIZE; i += 8 )
 	{
 		checksum = 0;
@@ -298,20 +244,17 @@ bool HexFile::writeFile( const char *fn, sx_t * sx )
 	writeByte( f, 256 - checksum, NULL );
 	fprintf( f, "\n" );
 
-	if ( ferror( f ) )
+	// closing writes what is still buffered, it can fail as well
+	bool written = ferror( f ) == 0;
+	int reason = errno;
+	if ( fclose( f ) != 0 && written )
 	{
-		perror( fn );
-		goto error;
+		written = false;
+		reason = errno;
 	}
-	r = true;
-
-error:
-	if ( f != NULL && fclose( f ) != 0 )
-	{
-		perror( fn );
-		r = false;
-	}
-	return ( r );
+	if ( !written )
+		return fail( error, strerror( reason ) );
+	return true;
 }
 
 /*

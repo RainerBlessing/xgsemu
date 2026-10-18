@@ -36,37 +36,37 @@ int str_case_compare(const char* s1, const char* s2) {
  * @param rom Pointer to XGSs ROM
  * @return 
  */
-bool FileHandler::readFile(const char *fn, u16 * rom)
+bool FileHandler::readFile(const char *fn, u16 * rom, std::string * error)
 {
     u16 fusex;
-    return readFile(fn, rom, &fusex);
+    return readFile(fn, rom, &fusex, error);
 }
 
-bool FileHandler::readFile(const char *fn, u16 * rom, u16 * fusex)
+bool FileHandler::readFile(const char *fn, u16 * rom, u16 * fusex, std::string * error)
 {
     size_t fn_length = strlen(fn);
-    if (fn_length < 4) {
-        return false;
-    }
+    // the extension, with the dot
+    const char* extension = fn_length >= 4 ? fn + fn_length - 4 : "";
 
     sx_t sx = sx_t();
-    // the extension, with the dot
-    const char* extension = fn + fn_length - 4;
     if (str_case_compare(".hex", extension) == 0)
     {
-        if (!HexFile::readFile(fn, &sx)) {
+        if (!HexFile::readFile(fn, &sx, error)) {
             return false;
         }
     }
     else if (str_case_compare(".obj", extension) == 0)
     {
         ObjFile of;
-        if (!of.readFile(fn, &sx)) {
+        if (!of.readFile(fn, &sx, error)) {
             return false;
         }
     }
     else
     {
+        if (error != NULL) {
+            *error = "not a .hex or .obj file";
+        }
         return false;
     }
     memcpy(rom, sx.rom, SX_MAX_ROM_SIZE * sizeof(u16));

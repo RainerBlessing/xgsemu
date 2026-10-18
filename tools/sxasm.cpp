@@ -40,5 +40,10 @@ int main(int argc, char** argv)
 		std::cerr << argv[1] << ": " << error << "\n";
 		return 1;
 	}
-	return HexFile::writeFile(argv[2], &sx) ? 0 : 1;
+	if (!HexFile::writeFile(argv[2], &sx, &error))
+	{
+		std::cerr << argv[2] << ": " << error << "\n";
+		return 1;
+	}
+	return 0;
 }

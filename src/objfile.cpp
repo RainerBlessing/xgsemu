@@ -17,7 +17,9 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
+#include <errno.h>
 #include <stdio.h>
+#include <string.h>
 #include "objfile.h"
 
 ObjFile::ObjFile()
@@ -28,12 +30,13 @@ ObjFile::~ObjFile()
 {}
 
 // A binary image of the program memory: two bytes per word, low byte first.
-bool ObjFile::readFile(const char *fn, sx_t * sx)
+bool ObjFile::readFile(const char *fn, sx_t * sx, std::string * error)
 {
 	FILE *f = fopen(fn, "rb");
 	if (!f)
 	{
-		perror(fn);
+		if (error != NULL)
+			*error = strerror(errno);
 		return false;
 	}
 
@@ -49,10 +52,12 @@ bool ObjFile::readFile(const char *fn, sx_t * sx)
 	u8 image[SX_MAX_ROM_SIZE * 2];
 	size_t bytes = fread(image, sizeof(u8), sizeof(image), f);
 	bool readFailed = ferror(f) != 0;
+	int reason = errno;
 	fclose(f);
 	if (readFailed)
 	{
-		perror(fn);
+		if (error != NULL)
+			*error = strerror(reason);
 		return false;
 	}
 	for (size_t word = 0; word * 2 < bytes; word++)
@@ -65,12 +70,13 @@ bool ObjFile::readFile(const char *fn, sx_t * sx)
 	return true;
 }
 
-bool ObjFile::writeFile(const char *fn, sx_t * sx)
+bool ObjFile::writeFile(const char *fn, sx_t * sx, std::string * error)
 {
 	FILE *f = fopen(fn, "wb");
 	if (!f)
 	{
-		perror(fn);
+		if (error != NULL)
+			*error = strerror(errno);
 		return false;
 	}
 
@@ -81,6 +87,14 @@ bool ObjFile::writeFile(const char *fn, sx_t * sx)
 		image[i * 2 + 1] = sx->rom[i] >> 8;
 	}
 	bool written = fwrite(image, sizeof(u8), sizeof(image), f) == sizeof(image);
+	int reason = errno;
 	// closing writes what is still buffered, it can fail as well
-	return fclose(f) == 0 && written;
+	if (fclose(f) != 0 && written)
+	{
+		written = false;
+		reason = errno;
+	}
+	if (!written && error != NULL)
+		*error = strerror(reason);
+	return written;
 }

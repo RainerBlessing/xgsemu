@@ -28,9 +28,10 @@ public:
 	/**
 	 * Loads a .hex or .obj program and starts it from the beginning. If the file cannot be
 	 * read the running program (and the picture) stay as they are.
+	 * @param error NULL, or receives the reason if the file is refused
 	 * @return false if the file could not be read
 	 */
-	bool load(const std::string& path);
+	bool load(const std::string& path, std::string* error = NULL);
 
 	/** Is there a program? */
 	bool isLoaded() const;

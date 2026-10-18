@@ -166,3 +166,10 @@ TEST(MachineJoystickWithoutProgramTest, ATapBeforeTheProgramIsNotStuckAfterLoadi
     ASSERT_TRUE(machine.load(STARFIELD));
     EXPECT_EQ(0, machine.getJoystick());
 }
+
+TEST(MachineTest, TheReasonWhyAFileWasRefusedIsGiven) {
+    Machine machine;
+    std::string error;
+    EXPECT_FALSE(machine.load("no_such_file.hex", &error));
+    EXPECT_NE(std::string::npos, error.find("No such file")) << error;
+}

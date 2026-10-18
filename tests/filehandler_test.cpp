@@ -110,3 +110,17 @@ TEST_F(FileHandlerTest, TheFusexWordIsNotTouchedWhenTheFileCannotBeRead) {
     EXPECT_FALSE(FileHandler::readFile("no_such_file.hex", rom, &fusex));
     EXPECT_EQ(0x123, fusex);
 }
+
+TEST_F(FileHandlerTest, AnUnknownExtensionIsReported) {
+    TestFile file(".txt", hexProgram());
+    std::string error;
+    EXPECT_FALSE(FileHandler::readFile(file.name(), rom, &error));
+    EXPECT_EQ("not a .hex or .obj file", error);
+}
+
+TEST_F(FileHandlerTest, TheReasonOfABrokenHexFileComesThrough) {
+    TestFile file(".hex", ":ZZ00000000\n");
+    std::string error;
+    EXPECT_FALSE(FileHandler::readFile(file.name(), rom, &error));
+    EXPECT_EQ("line 1: bogus byte count", error);
+}

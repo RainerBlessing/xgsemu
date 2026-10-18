@@ -103,8 +103,24 @@ TEST_F(ToolsTest, MissingArgumentsShowTheUsage) {
     EXPECT_EQ(2, run(sxdis("")).exitCode);
 }
 
-TEST_F(ToolsTest, MissingHexFileFails) {
-    EXPECT_EQ(1, run(sxdis(quoted(dir + "/missing.hex"))).exitCode);
+TEST_F(ToolsTest, MissingHexFileFailsAndSaysWhy) {
+    Result result = run(sxdis(quoted(dir + "/missing.hex")));
+    EXPECT_EQ(1, result.exitCode);
+    EXPECT_NE(std::string::npos, result.output.find("missing.hex: No such file")) << result.output;
+}
+
+TEST_F(ToolsTest, ABrokenHexFileIsReportedWithItsLine) {
+    writeFile(dir + "/broken.hex", ":ZZ00000000\n");
+    Result result = run(sxdis(quoted(dir + "/broken.hex")));
+    EXPECT_EQ(1, result.exitCode);
+    EXPECT_NE(std::string::npos, result.output.find("broken.hex: line 1: bogus byte count")) << result.output;
+}
+
+TEST_F(ToolsTest, AnOutputFileThatCannotBeWrittenIsReported) {
+    writeFile(dir + "/ok.asm", "nop\n");
+    Result result = run(sxasm(quoted(dir + "/ok.asm") + " " + quoted(dir + "/no_such_directory/out.hex")));
+    EXPECT_EQ(1, result.exitCode);
+    EXPECT_NE(std::string::npos, result.output.find("out.hex: No such file")) << result.output;
 }
 
 TEST_F(ToolsTest, TargetsOfJumpsAreShownAsLabels) {

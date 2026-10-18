@@ -100,3 +100,15 @@ TEST_F(ObjFileTest, WhatIsWrittenCanBeReadAgain) {
 TEST_F(ObjFileTest, ADirectoryThatDoesNotExistIsAnError) {
     EXPECT_FALSE(objFile.writeFile("no_such_directory/x.obj", &rom));
 }
+
+TEST_F(ObjFileTest, AMissingFileIsReportedWithTheReasonOfTheSystem) {
+    std::string error;
+    EXPECT_FALSE(objFile.readFile("no_such_file.obj", &rom, &error));
+    EXPECT_NE(std::string::npos, error.find("No such file")) << error;
+}
+
+TEST_F(ObjFileTest, AFileThatCannotBeWrittenIsReported) {
+    std::string error;
+    EXPECT_FALSE(objFile.writeFile("no_such_directory/x.obj", &rom, &error));
+    EXPECT_NE(std::string::npos, error.find("No such file")) << error;
+}

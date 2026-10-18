@@ -84,8 +84,12 @@ int main(int argc, char** argv)
 		std::cerr << "usage: sxdis [-n] [-s] file.hex\n";
 		return 2;
 	}
-	if (!HexFile::readFile(argv[i], &sx))
+	std::string error;
+	if (!HexFile::readFile(argv[i], &sx, &error))
+	{
+		std::cerr << argv[i] << ": " << error << "\n";
 		return 1;
+	}
 
 	std::map<int, int> targets;
 	std::map<int, bool> labelled;

@@ -364,8 +364,9 @@ void XGSEmu::loadHexFile(const std::string& path) {
     
     printf("Lade ROM-Datei: %s\n", path.c_str());
     // If the file cannot be read the running program stays as it is
-    if (!machine.load(path)) {
-        printf("Fehler beim Lesen der ROM-Datei!\n");
+    std::string error;
+    if (!machine.load(path, &error)) {
+        printf("Fehler beim Lesen der ROM-Datei %s: %s\n", path.c_str(), error.c_str());
         return;
     }
     printf("ROM-Datei erfolgreich geladen.\n");

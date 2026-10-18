@@ -32,8 +32,10 @@ public:
 	ObjFile();
 
 	~ObjFile();
-	bool readFile(const char *fn, sx_t * sx );
-	bool writeFile(const char *fn, sx_t * sx );
+	/** @param error NULL, or receives the reason if the file cannot be read */
+	bool readFile(const char *fn, sx_t * sx, std::string * error = NULL);
+	/** @param error NULL, or receives the reason if the file cannot be written */
+	bool writeFile(const char *fn, sx_t * sx, std::string * error = NULL);
 };
 
 #endif

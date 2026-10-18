@@ -19,12 +19,12 @@ Machine::~Machine()
 	// The members go in reverse order: first the CPU that points to the video and the sound chip.
 }
 
-bool Machine::load(const std::string& path)
+bool Machine::load(const std::string& path, std::string* error)
 {
 	// Read the file first: if it cannot be read the running program stays as it is
 	u16 rom[4096];
 	u16 fusex;
-	if (!FileHandler::readFile(path.c_str(), rom, &fusex))
+	if (!FileHandler::readFile(path.c_str(), rom, &fusex, error))
 	{
 		return false;
 	}
