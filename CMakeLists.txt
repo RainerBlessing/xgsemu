@@ -40,6 +40,26 @@ message(STATUS "Build directory: ${CMAKE_BINARY_DIR}")
 # Include directories
 include_directories(${SDL2_INCLUDE_DIRS})
 
+# Option für Unit Tests
+option(BUILD_TESTS "Build the unit tests" ON)
+
+# Ohne enable_testing() kennt ctest die per gtest_discover_tests gefundenen Tests nicht.
+enable_testing()
+
+if(BUILD_TESTS)
+    # GoogleTest via FetchContent, also used by the tests of sxcpu
+    include(FetchContent)
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG release-1.12.1
+    )
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+endif()
+
+# the tests of the CPU, the assembler and the disassembler are part of sxcpu
+set(SXCPU_BUILD_TESTS ${BUILD_TESTS} CACHE BOOL "Build the tests of sxcpu" FORCE)
 add_subdirectory(sxcpu)
 
 # Source files - nur aus src/ Verzeichnis
@@ -148,28 +168,12 @@ if(GIT_FOUND)
     )
 endif()
 
-# Option für Unit Tests
-option(BUILD_TESTS "Build the unit tests" ON)
-
-# Ohne enable_testing() kennt ctest die per gtest_discover_tests gefundenen Tests nicht.
-enable_testing()
-
 if(BUILD_TESTS)
     # Sammle alle Testquellen ein
     file(GLOB TEST_SOURCES "tests/*.cpp")
 
     # Prüfe, ob wir tatsächlich etwas gefunden haben
     if(TEST_SOURCES)
-        # GoogleTest via FetchContent laden, wie gehabt
-        include(FetchContent)
-        FetchContent_Declare(
-            googletest
-            GIT_REPOSITORY https://github.com/google/googletest.git
-            GIT_TAG release-1.12.1
-        )
-        set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-        FetchContent_MakeAvailable(googletest)
-
         # Bibliothek aus deinem Projekt
         # everything but main(): the tests bring their own
         set(LIB_SOURCES ${SOURCES})
