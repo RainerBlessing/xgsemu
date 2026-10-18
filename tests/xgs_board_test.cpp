@@ -131,6 +131,148 @@ TEST_F(XgsBoardTest, AClockPulseWithoutRisingIsNoShift) {
     EXPECT_EQ(0, registers[0] & 4);                   // nothing was put on RA2
 }
 
+// The SRAM pins driven directly, one register write at a time: RC bit 4 is the clock of the
+// page register (74HCT164: it takes RC5 with the rising edge), RC6 the chip enable (low:
+// enabled), RC7 the direction (low: write), RD the data, RC0..RC3 the lowest address bits.
+class XgsBoardSramPinsTest : public XgsBoardTest {
+protected:
+    static const unsigned char CLOCK = 0x10, DATA = 0x20, DISABLED = 0x40, READ = 0x80;
+
+    void writeRc(unsigned char value) {
+        registers[2] = value;
+        board.portWritten(2, registers, 0);
+    }
+
+    // one pulse of the clock with the bit on RC5; the chip stays disabled
+    void clockBit(int bit) {
+        writeRc(DISABLED | (bit ? DATA : 0) | CLOCK);
+        writeRc(DISABLED | (bit ? DATA : 0));
+    }
+
+    // the 12 bit page, most significant bit first
+    void setPage(int page) {
+        for (int bit = 11; bit >= 0; bit--) {
+            clockBit((page >> bit) & 1);
+        }
+    }
+
+    void writeByte(int low, unsigned char value) {
+        registers[3] = value;
+        writeRc(low);                                 // enabled, write: stored
+        writeRc(DISABLED | low);
+    }
+
+    unsigned char readByte(int low) {
+        writeRc(READ | low);                          // enabled, read: RD shows the byte
+        unsigned char value = registers[3];
+        writeRc(DISABLED | low);
+        return value;
+    }
+};
+
+TEST_F(XgsBoardSramPinsTest, TheAddressIsThePageAndTheLowFourBits) {
+    setPage(0x123);
+    writeByte(0x5, 0xab);
+    EXPECT_EQ(0xab, board.getSRAM()[(0x123 << 4) | 0x5]);
+}
+
+TEST_F(XgsBoardSramPinsTest, WhatWasWrittenCanBeReadFromTheSameAddress) {
+    setPage(0x042);
+    writeByte(0x7, 0x3c);
+    registers[3] = 0;
+    EXPECT_EQ(0x3c, readByte(0x7));
+    EXPECT_EQ(0, readByte(0x8));                      // another address
+}
+
+// A 74HCT164 takes its data with the rising edge only.
+TEST_F(XgsBoardSramPinsTest, TheClockShiftsOnlyWithTheRisingEdge) {
+    setPage(0x001);
+    writeRc(DISABLED | CLOCK);                        // rising edge, data 0: the page is 0x002
+    writeRc(DISABLED | CLOCK | DATA);                 // the clock stays high: nothing is shifted
+    writeRc(DISABLED | CLOCK);
+    writeRc(DISABLED);                                // falling edge: nothing is shifted
+    writeByte(0x0, 0x11);
+    EXPECT_EQ(0x11, board.getSRAM()[0x002 << 4]);
+}
+
+// An instruction that changes RC without being a write (or, and, add...) clocks as well.
+TEST_F(XgsBoardSramPinsTest, AnyChangeOfTheClockPinCountsNotOnlyWritesToRc) {
+    registers[2] = DISABLED | DATA | CLOCK;
+    board.portChanged(2, registers);                  // no portWritten: "or rc,w" did it
+    registers[2] = DISABLED;
+    board.portChanged(2, registers);
+    writeByte(0x0, 0x22);
+    EXPECT_EQ(0x22, board.getSRAM()[0x001 << 4]);
+}
+
+TEST_F(XgsBoardSramPinsTest, TheSameClockLevelSeenTwiceIsOneEdge) {
+    registers[2] = DISABLED | DATA | CLOCK;
+    board.portWritten(2, registers, 0);               // the instruction that wrote it
+    board.portChanged(2, registers);                  // and the report before the next one
+    registers[2] = DISABLED;
+    board.portWritten(2, registers, 0);
+    board.portChanged(2, registers);
+    writeByte(0x0, 0x33);
+    EXPECT_EQ(0x33, board.getSRAM()[0x001 << 4]);
+}
+
+// Nothing clears the shift registers: their reset pins are tied high.
+TEST_F(XgsBoardSramPinsTest, ThePageStaysWhenTheChipIsDisabledAndEnabledAgain) {
+    setPage(0x0f0);
+    writeByte(0x0, 0x44);
+    writeByte(0x1, 0x55);
+    EXPECT_EQ(0x44, board.getSRAM()[0x0f0 << 4]);
+    EXPECT_EQ(0x55, board.getSRAM()[(0x0f0 << 4) | 1]);
+}
+
+TEST_F(XgsBoardSramPinsTest, OnlyTheLastTwelveBitsMakeThePage) {
+    for (int i = 0; i < 16; i++) {
+        clockBit(1);
+    }
+    writeByte(0x0, 0x66);
+    EXPECT_EQ(0x66, board.getSRAM()[0xfff << 4]);
+}
+
+TEST_F(XgsBoardSramPinsTest, Ra7IsTheHighestAddressBit) {
+    setPage(0x001);
+    registers[0] = 0x80;
+    writeByte(0x0, 0x77);
+    EXPECT_EQ(0x77, board.getSRAM()[0x10000 | (0x001 << 4)]);
+    EXPECT_EQ(0, board.getSRAM()[0x001 << 4]);
+}
+
+TEST_F(XgsBoardSramPinsTest, ADisabledChipStoresNothing) {
+    setPage(0x010);
+    registers[3] = 0x88;
+    writeRc(DISABLED | 0x0);
+    writeRc(DISABLED | 0x1);
+    board.portWritten(3, registers, 0);
+    EXPECT_EQ(0, board.getSRAM()[0x010 << 4]);
+    EXPECT_EQ(0, board.getSRAM()[(0x010 << 4) | 1]);
+}
+
+// The data bus is the pins of RD: a byte that appears there while the chip writes is stored.
+TEST_F(XgsBoardSramPinsTest, ANewByteOnRdWhileTheChipWritesIsStored) {
+    setPage(0x020);
+    registers[3] = 0;
+    writeRc(0x2);                                     // enabled for writing, RD is 0
+    registers[3] = 0x99;
+    board.portWritten(3, registers, 0);               // mov rd,w
+    EXPECT_EQ(0x99, board.getSRAM()[(0x020 << 4) | 2]);
+    registers[3] = 0xaa;
+    board.portChanged(3, registers);                  // any other instruction
+    EXPECT_EQ(0xaa, board.getSRAM()[(0x020 << 4) | 2]);
+}
+
+TEST_F(XgsBoardSramPinsTest, RdIsNotStoredWhileTheChipReads) {
+    setPage(0x020);
+    writeByte(0x2, 0x12);
+    writeRc(READ | 0x2);                              // reading: RD shows 0x12
+    registers[3] = 0x34;                              // someone else drives the pins
+    board.portWritten(3, registers, 0);
+    EXPECT_EQ(0x12, board.getSRAM()[(0x020 << 4) | 2]);
+}
+
 // The SRAM is addressed through port C and D: bit 4 of RC clocks one bit (bit 5) into a 12 bit
 // page register, bit 6 is the chip enable. The tests run a real CPU against the board.
 class XgsBoardSramTest : public ::testing::Test {
@@ -211,6 +353,8 @@ TEST_F(XgsBoardSramTest, WhatWasWrittenCanBeReadBack) {
     ram[8] = 0x5a;
     ram[261] = 0x03;
     run(0x027);               // mov RC,w: write at address 3
+    ram[261] = 0x40 | 0x03;   // chip disabled
+    run(0x027);               // mov RC,w
     ram[8] = 0;
     ram[261] = 0x80 | 0x03;   // chip enable 0, read
     run(0x027);               // mov RC,w

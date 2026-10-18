@@ -11,8 +11,9 @@
  *
  * Pins of RA: bit 0 is the clock and bit 1 the "start" of the joystick, bit 2 its data
  * (low: pressed), bit 3..6 the sound chip (see Bu8763), bit 7 the highest address bit of the SRAM.
- * Pins of RC: bits 0..3 are the lowest address bits of the SRAM, bit 4 clocks bit 5 into a 12 bit
- * page register, bit 6 is the chip enable and bit 7 the direction (low: write). RD is its data.
+ * Pins of RC: bits 0..3 are the lowest address bits of the SRAM, bit 4 is the clock of the 12 bit
+ * page register (it takes bit 5 with the rising edge), bit 6 is the chip enable (low: enabled)
+ * and bit 7 the direction (low: write). RD is its data bus.
  */
 class XgsBoard : public PortDevice
 {
@@ -47,6 +48,8 @@ private:
 
 	void joystick(unsigned char* registers);
 	void sram(unsigned char* registers);
+	void sramStore(unsigned char* registers);
+	int sramAddress(const unsigned char* registers) const;
 
 	VideoPort* video;
 	SoundPort* sound;
@@ -55,7 +58,7 @@ private:
 	bool joystickClockHigh;
 	char joystickBit;
 	unsigned short sramPage;
-	bool sramActive;
+	bool sramClockHigh;
 };
 
 #endif /*XGSBOARD_H_*/

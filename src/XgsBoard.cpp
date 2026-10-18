@@ -15,7 +15,7 @@ void XgsBoard::reset()
 	joystickClockHigh = false;
 	joystickBit = 0;
 	sramPage = 0;
-	sramActive = false;
+	sramClockHigh = false;
 }
 
 void XgsBoard::setJoystick(unsigned short buttons)
@@ -33,7 +33,7 @@ unsigned char* XgsBoard::getSRAM()
 	return SRAM;
 }
 
-// The program wrote a port register: RA is the joystick, RC the SRAM, RE the video.
+// The program wrote a port register: RA is the joystick, RC and RD the SRAM, RE the video.
 void XgsBoard::portWritten(int port, unsigned char* registers, unsigned int cycle)
 {
 	switch (port)
@@ -44,6 +44,9 @@ void XgsBoard::portWritten(int port, unsigned char* registers, unsigned int cycl
 		case 2:
 			sram(registers);
 			break;
+		case 3:
+			sramStore(registers);
+			break;
 		case 4:
 			if (video != NULL)
 				video->changeVideo((int)cycle, registers[4]);
@@ -53,12 +56,24 @@ void XgsBoard::portWritten(int port, unsigned char* registers, unsigned int cycl
 	}
 }
 
-// The sound chip hangs on port RA: it wants every value RA has, whoever put it there.
+// The sound chip hangs on port RA: it wants every value RA has, whoever put it there. The
+// SRAM sees its pins change however they were changed, not only by mov, setb and clrb.
 void XgsBoard::portChanged(int port, unsigned char* registers)
 {
-	if (port == 0 && sound != NULL)
+	switch (port)
 	{
-		sound->portWrite(registers[0]);
+		case 0:
+			if (sound != NULL)
+				sound->portWrite(registers[0]);
+			break;
+		case 2:
+			sram(registers);
+			break;
+		case 3:
+			sramStore(registers);
+			break;
+		default:
+			break;
 	}
 }
 
@@ -93,35 +108,47 @@ void XgsBoard::joystick(unsigned char* registers)
 	}
 }
 
+// The SRAM (AS7C1024, 128K x 8) with its address logic. Two 74HCT164 shift registers hold the
+// page, bits 4..15 of the address: RC4 is their clock, they take RC5 with the rising edge.
+// Nothing clears them (the reset pins are tied high), so a page stays when the chip is disabled.
+// Bits 0..3 of the address are RC0..RC3 and the highest bit is RA7. The chip is enabled by RC6
+// low, RC7 selects write (low) or read (high), RD is the data bus.
 void XgsBoard::sram(unsigned char* registers)
 {
-	unsigned char ra = registers[0];
 	unsigned char rc = registers[2];
-	unsigned char& rd = registers[3];
-	if (((rc >> 4) & 1) == 1)
+	bool clock = (rc & 0x10) != 0;
+	if (clock && !sramClockHigh)
 	{
-		sramPage <<= 1;
-		sramPage &= 0xfff; // 12 bit
-		sramPage |= (rc >> 5) & 1;
+		sramPage = ((sramPage << 1) | ((rc >> 5) & 1)) & 0xfff; // 12 bit
 	}
-	if (((rc >> 6) & 1) == 0)
-	{ // chipenable=0
-		// 17 bit address: RA7 is the highest bit, then the 12 bit page, the lowest four bits are in RC
-		int address = (((ra >> 7) & 1) << 16) | (sramPage << 4) | (rc & 0xf);
+	sramClockHigh = clock;
 
-		if (((rc >> 7) & 1) == 0)
-		{ //write
-			SRAM[address] = rd;
+	if ((rc & 0x40) == 0)
+	{ // chip enabled
+		int address = sramAddress(registers);
+		if ((rc & 0x80) == 0)
+		{ // write
+			SRAM[address] = registers[3];
 		}
 		else
-		{ //read
-			rd = SRAM[address];
+		{ // read
+			registers[3] = SRAM[address];
 		}
-		sramActive = true;
 	}
-	if (((rc >> 6) & 1) == 1 && sramActive == true)
-	{ // chipenable=1
-		sramPage = 0;
-		sramActive = false;
+}
+
+// The data pins changed while the chip is enabled for writing: the byte is stored.
+void XgsBoard::sramStore(unsigned char* registers)
+{
+	unsigned char rc = registers[2];
+	if ((rc & 0x40) == 0 && (rc & 0x80) == 0)
+	{
+		SRAM[sramAddress(registers)] = registers[3];
 	}
+}
+
+// 17 bit address: RA7 is the highest bit, then the 12 bit page, the lowest four bits are in RC
+int XgsBoard::sramAddress(const unsigned char* registers) const
+{
+	return (((registers[0] >> 7) & 1) << 16) | (sramPage << 4) | (registers[2] & 0xf);
 }
