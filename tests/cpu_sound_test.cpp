@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "../src/Bu8763.h"
 #include "../src/Video.h"
+#include "../src/XgsBoard.h"
 #include "cpu.h"
 #include "../src/filehandler.h"
 
@@ -14,9 +15,10 @@ class CpuSoundTest : public ::testing::Test {
 protected:
     Video video;
     Bu8763 chip;
+    XgsBoard board;
     Cpu cpu;
 
-    CpuSoundTest() : cpu(&video) {}
+    CpuSoundTest() : board(&video, &chip), cpu(&board) {}
 
     void runInstructions(int count) {
         for (int i = 0; i < count; i++) {
@@ -27,7 +29,6 @@ protected:
 
 TEST_F(CpuSoundTest, RemPacProgramsTheSoundChip) {
     ASSERT_TRUE(FileHandler::readFile(EXAMPLES_DIR "/rem_pac_01.hex", cpu.getROM()));
-    cpu.setSound(&chip);
     // About 10 seconds of 80 MHz / 4 instructions at 60 frames per second.
     runInstructions(3000000);
     // init_sound_system enables wave 1 + 2 and leaves sleep mode.
@@ -38,7 +39,6 @@ TEST_F(CpuSoundTest, RemPacProgramsTheSoundChip) {
 
 TEST_F(CpuSoundTest, ProgramWithoutSoundLeavesChipInSleep) {
     ASSERT_TRUE(FileHandler::readFile(EXAMPLES_DIR "/starfield_01.hex", cpu.getROM()));
-    cpu.setSound(&chip);
     runInstructions(1000000);
     EXPECT_EQ(0x01, chip.oper());
 }

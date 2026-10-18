@@ -2,7 +2,7 @@
 #define VIDEO_H_
 #include <stdint.h>
 #include <vector>
-#include "cpu_ports.h"
+#include "board_ports.h"
 #define USHORT unsigned short
 
 typedef struct

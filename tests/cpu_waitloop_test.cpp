@@ -2,6 +2,7 @@
 #include <string.h>
 #include <vector>
 #include "../src/Video.h"
+#include "../src/XgsBoard.h"
 #include "cpu.h"
 #include "../src/filehandler.h"
 
@@ -25,7 +26,7 @@ protected:
     static const int COUNTER = 0x0c;
     static const int LOOP = 0x20;       // address of the decsz
 
-    Video video;
+    // the wait loops are about cycles, not about what is on the pins
 
     struct Run {
         int cycles;
@@ -40,7 +41,7 @@ protected:
     // mov w,#option; mov !option,w; the RTCC counts every cycle
     // loop:  decsz counter; [page 0;] jmp loop; nop; nop
     Run run(bool fast, int counter, bool withPage, int counterRegister = COUNTER) {
-        Cpu cpu(&video);
+        Cpu cpu(NULL);
         cpu.setFastLoops(fast);
         USHORT* rom = cpu.getROM();
         for (int i = 0; i < 128; i++) {
@@ -131,7 +132,8 @@ class WaitLoopProgramTest : public ::testing::TestWithParam<const char*> {
 TEST_P(WaitLoopProgramTest, RunsLikeTheSteppedCpu) {
     std::string path = std::string(EXAMPLES_DIR) + "/" + GetParam();
     Video videoStepped, videoFast;
-    Cpu stepped(&videoStepped), fast(&videoFast);
+    XgsBoard boardStepped(&videoStepped, NULL), boardFast(&videoFast, NULL);
+    Cpu stepped(&boardStepped), fast(&boardFast);
     stepped.setFastLoops(false);
     fast.setFastLoops(true);
     ASSERT_TRUE(FileHandler::readFile(path.c_str(), stepped.getROM()));
@@ -149,7 +151,7 @@ TEST_P(WaitLoopProgramTest, RunsLikeTheSteppedCpu) {
         ASSERT_EQ(*stepped.getPC(), *fast.getPC()) << "step " << steps;
         ASSERT_EQ(0, memcmp(stepped.getRAM(), fast.getRAM(), 262)) << "step " << steps;
     }
-    EXPECT_EQ(0, memcmp(stepped.getSRAM(), fast.getSRAM(), 131072));
+    EXPECT_EQ(0, memcmp(boardStepped.getSRAM(), boardFast.getSRAM(), XgsBoard::SRAM_SIZE));
     EXPECT_EQ(0, memcmp(videoStepped.pixels(), videoFast.pixels(), videoStepped.pitch() * videoStepped.height()));
 }
 

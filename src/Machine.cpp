@@ -3,6 +3,7 @@
 #include "Bu8763.h"
 #include "Video.h"
 #include "cpu.h"
+#include "XgsBoard.h"
 #include "filehandler.h"
 
 Machine::Machine()
@@ -16,7 +17,8 @@ Machine::Machine()
 
 Machine::~Machine()
 {
-	// The members go in reverse order: first the CPU that points to the video and the sound chip.
+	// The members go in reverse order: the CPU first, it points to the board, and the board
+	// points to the video and the sound chip.
 }
 
 bool Machine::load(const std::string& path, std::string* error)
@@ -29,16 +31,18 @@ bool Machine::load(const std::string& path, std::string* error)
 		return false;
 	}
 
-	// a new video: the program counts cycles from 0 and draws a new picture
+	// a new video and a new board: the program counts cycles from 0, draws a new picture and
+	// finds an empty SRAM
 	std::unique_ptr<Video> newVideo(new Video());
-	std::unique_ptr<Cpu> newCpu(new Cpu(newVideo.get()));
+	std::unique_ptr<XgsBoard> newBoard(new XgsBoard(newVideo.get(), sound.get()));
+	std::unique_ptr<Cpu> newCpu(new Cpu(newBoard.get()));
 	memcpy(newCpu->getROM(), rom, sizeof(rom));
 	newCpu->setFusex(fusex); // CF: the carry is an input of ADD and SUB
 	sound->reset();
-	newCpu->setSound(sound.get());
 
-	// the old CPU goes before the video it points to
+	// the old CPU goes before the board it points to, the board before the video
 	cpu = std::move(newCpu);
+	board = std::move(newBoard);
 	video = std::move(newVideo);
 
 	// A new program has seen none of the taps that are still waiting: let them go, or the
@@ -46,7 +50,7 @@ bool Machine::load(const std::string& path, std::string* error)
 	joystick &= ~releaseDeferred;
 	releaseDeferred = 0;
 	pressedUnseen = 0;
-	passJoystickToCpu();
+	passJoystickToBoard();
 	return true;
 }
 
@@ -60,6 +64,7 @@ void Machine::reset()
 	if (cpu.get() != NULL)
 	{
 		cpu->reset();
+		board->reset();
 		video->reset();
 		sound->reset();
 	}
@@ -77,7 +82,7 @@ void Machine::runFrame()
 	joystick &= ~releaseDeferred;
 	releaseDeferred = 0;
 	pressedUnseen = 0;
-	passJoystickToCpu();
+	passJoystickToBoard();
 }
 
 void Machine::setJoystick(unsigned short mask, bool down)
@@ -98,7 +103,7 @@ void Machine::setJoystick(unsigned short mask, bool down)
 	{
 		joystick &= ~mask;
 	}
-	passJoystickToCpu();
+	passJoystickToBoard();
 }
 
 unsigned short Machine::getJoystick() const
@@ -116,10 +121,10 @@ Bu8763& Machine::getSound()
 	return *sound;
 }
 
-void Machine::passJoystickToCpu()
+void Machine::passJoystickToBoard()
 {
-	if (cpu.get() != NULL)
+	if (board.get() != NULL)
 	{
-		*cpu->getJoystrickr() = joystick;
+		board->setJoystick(joystick);
 	}
 }

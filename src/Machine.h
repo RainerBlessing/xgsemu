@@ -7,6 +7,7 @@
 class Cpu;
 class Video;
 class Bu8763;
+class XgsBoard;
 
 /**
  * The XGameStation Micro Edition without a window: the SX52 with the program, the video
@@ -63,10 +64,11 @@ private:
 	Machine(const Machine&) = delete;
 	Machine& operator=(const Machine&) = delete;
 
-	void passJoystickToCpu();
+	void passJoystickToBoard();
 
 	std::unique_ptr<Video> video;
 	std::unique_ptr<Bu8763> sound;
+	std::unique_ptr<XgsBoard> board;	// the video, the sound chip, the joystick and the SRAM around the CPU
 	std::unique_ptr<Cpu> cpu;
 	unsigned short joystick;
 	unsigned short pressedUnseen;	// pressed, but no frame has run with it yet

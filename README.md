@@ -134,8 +134,9 @@ ctest
 
 | Part | What it does |
 |---|---|
-| `sxcpu/` (submodule) | The SX52 (`Cpu`), assembler and disassembler. No SDL, the video and the sound chip are connected through `VideoPort` and `SoundPort`. |
-| `src/Machine` | The XGS ME without a window: CPU, video, sound chip and joystick. `load()`, `runFrame()`, `reset()`, `setJoystick()`. No SDL. |
+| `sxcpu/` (submodule) | The SX52 (`Cpu`), assembler and disassembler. No SDL, no board: what hangs on the ports is connected through `PortDevice`. |
+| `src/XgsBoard` | What the XGS ME has around the SX52: the video (RE), the sound chip and the serial joystick (RA), the 128 KB SRAM (RA, RC, RD). It is the `PortDevice` of the CPU. |
+| `src/Machine` | The XGS ME without a window: CPU, board, video, sound chip. `load()`, `runFrame()`, `reset()`, `setJoystick()`. No SDL. |
 | `src/Video` | Turns the video signal of the program into a 560x525 picture (a pixel buffer). |
 | `src/Bu8763` | The sound chip. The audio thread reads it, the emulator thread writes it. |
 | `src/xgsemu`, `AudioOutput`, `InputMap`, `Config` | The SDL2 window: picture, keys, sound output, the remembered directory. |
