@@ -420,3 +420,47 @@ TEST_F(AssembleSourceTest, NoLabelsAreGivenOnAnError) {
     EXPECT_FALSE(assembleSource("a: nop\nfrobnicate\n", rom, ROM_SIZE, &error, &labels));
     EXPECT_TRUE(labels.empty());
 }
+
+// samepage: room for a routine that must not cross a page
+
+TEST_F(AssembleSourceTest, SamepageLeavesCodeThatFits) {
+    ASSERT_TRUE(assembleText("nop\nsamepage 100\nhere: nop\n")) << error;
+    EXPECT_EQ(0x000, rom[1]);
+}
+
+TEST_F(AssembleSourceTest, SamepageMovesOnToTheNextPageIfTheRoutineWouldCrossIt) {
+    ASSERT_TRUE(assembleText("org 150\nsamepage 100\nnop\n")) << error;
+    EXPECT_EQ(UNUSED, rom[0x150]);
+    EXPECT_EQ(0x000, rom[0x200]);
+}
+
+TEST_F(AssembleSourceTest, SamepageFitsExactlyToTheEndOfThePage) {
+    ASSERT_TRUE(assembleText("org 100\nsamepage 100\nnop\n")) << error;
+    EXPECT_EQ(0x000, rom[0x100]);
+}
+
+TEST_F(AssembleSourceTest, SamepageOneWordTooMuch) {
+    ASSERT_TRUE(assembleText("org 100\nsamepage 101\nnop\n")) << error;
+    EXPECT_EQ(UNUSED, rom[0x100]);
+    EXPECT_EQ(0x000, rom[0x200]);
+}
+
+TEST_F(AssembleSourceTest, SamepageBindsALabelOnTheNextLine) {
+    ASSERT_TRUE(assembleText("org 1f0\nsamepage 40\nstart: nop\norg 0\njmp start\n")) << error;
+    EXPECT_EQ(0x000, rom[0x200]);
+    EXPECT_EQ(0xa00, rom[0]);       // start is at 0x200: the low nine bits are 0
+}
+
+TEST_F(AssembleSourceTest, SamepageNeedsASizeThatFitsAPage) {
+    EXPECT_FALSE(assembleText("samepage 201\nnop\n"));
+    EXPECT_FALSE(assembleText("samepage\nnop\n"));
+}
+
+TEST_F(AssembleSourceTest, SamepageAtTheEndOfTheRom) {
+    EXPECT_FALSE(assembleText("org e10\nsamepage 200\n"));
+}
+
+TEST_F(AssembleSourceTest, SamepageWithAutopageDoesNotAddAPageInstructionBefore) {
+    ASSERT_TRUE(assembleText("autopage on\norg 1f0\nsamepage 40\nnop\n")) << error;
+    EXPECT_EQ(0x000, rom[0x200]);
+}

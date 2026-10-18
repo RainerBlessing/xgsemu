@@ -234,6 +234,7 @@ table:  dw 123, start       ; raw 12 bit words
 | `name equ value` | A name for a number (register, literal), usable everywhere a number is, also before the definition. |
 | `dw value, ...` | Raw 12 bit words. Values can be numbers, names or labels (a label keeps its full address). |
 | `firsthalf` | Moves on to the start of the next page if the address is in the second half of a page, because a `call` reaches only the first half. |
+| `samepage n` | Moves on to the start of the next page if the next `n` words would not fit on the rest of this page: for a routine that has to stay on one page. |
 | `autopage on` / `autopage off` | Puts `page n` in front of every `jmp` and `call` to a label on another page, until switched off. Off at the start. |
 
 The registers have names: `indf`, `rtcc`, `pc`, `status`, `fsr` and `ra` to `re`. `w`, `m`,
