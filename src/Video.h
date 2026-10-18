@@ -1,6 +1,7 @@
 #ifndef VIDEO_H_
 #define VIDEO_H_
-#include "SDL.h"
+#include <stdint.h>
+#include <vector>
 #include "cpu_ports.h"
 #define USHORT unsigned short
 
@@ -35,12 +36,34 @@ public:
 	 */
 	void reset();
 	/**
-	 * Returns the pointer to the SDL surface
-	 * @return Screen pointer
+	 * Size of the picture in pixels.
 	 */
-	SDL_Surface* getScreen()
+	static const int WIDTH = 560;
+	static const int HEIGHT = 525;
+	int width() const
 	{
-		return screen;
+		return WIDTH;
+	};
+	int height() const
+	{
+		return HEIGHT;
+	};
+	/**
+	 * The picture: HEIGHT rows of WIDTH pixels, row after row, no padding. A pixel is
+	 * 0xAARRGGBB with the alpha of a drawn pixel at 0xFF; what was never drawn is 0.
+	 */
+	uint32_t* pixels()
+	{
+		return &picture[0];
+	};
+	const uint32_t* pixels() const
+	{
+		return &picture[0];
+	};
+	/** Bytes from the start of one row to the start of the next. */
+	int pitch() const
+	{
+		return WIDTH * (int) sizeof(uint32_t);
 	};
 private:
 	/**
@@ -61,20 +84,20 @@ private:
 	bool vsync;          // a vsync has been seen
 	bool line;           // the colour burst of the current line has been seen
 	int x0, x, y;        // pixel position of the fragment that is drawn
-	Uint32 burst;        // colour of the colour burst, reference for the phase
+	uint32_t burst;      // colour of the colour burst, reference for the phase
 	/**
 	        * Intensity levels
 	        */
-	Uint32 intensity[16];
-	SDL_Surface* screen;
+	uint32_t intensity[16];
+	std::vector<uint32_t> picture;
 
 	void startFrame();
 	void startLine();
 	void measureFragment(int cycle, int previous);
 	int toScreenColumn(int position) const;
 	static void wheelColour(int phase, int* red, int* green, int* blue);
-	Uint32 fragmentPixel(unsigned short colour) const;
-	void fillRow(int row, int from, int to, Uint32 pixel);
+	uint32_t fragmentPixel(unsigned short colour) const;
+	void fillRow(int row, int from, int to, uint32_t pixel);
 	void drawFragment(int cycle, int previous);
 };
 

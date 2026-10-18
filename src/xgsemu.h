@@ -66,7 +66,6 @@ private:
     SDL_Window* window;         // SDL2 Fenster
     SDL_Renderer* renderer;     // SDL2 Renderer
     SDL_Texture* texture;       // SDL2 Textur für das Emulator-Display
-    SDL_Surface* emuDisplay;    // Surface für das Emulator-Display (vom Video-System)
     
     // Menu state (simplified)
     bool menuActive;

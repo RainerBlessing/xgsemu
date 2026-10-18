@@ -4,20 +4,8 @@
 #include <string.h>
 
 Video::Video()
+	: picture(WIDTH * HEIGHT, 0)
 {
-screen = SDL_CreateRGBSurface(0, 560, 525, 32, 
-                           0x00FF0000,   // R
-                           0x0000FF00,   // G
-                           0x000000FF,   // B
-                           0xFF000000);  // A
-	
-	if ( !screen)
-	{
-		fprintf(stderr, "Couldn't create a surface: %s\n",
-		        SDL_GetError());
-	}
-
-
 	reset();
 
 	intensity[0] = 0;
@@ -41,7 +29,6 @@ screen = SDL_CreateRGBSurface(0, 560, 525, 32,
 
 Video::~Video()
 {
-	SDL_FreeSurface(screen);
 }
 
 
@@ -52,6 +39,12 @@ namespace
 int elapsed(int now, int before)
 {
 	return (int)((unsigned int)now - (unsigned int)before);
+}
+
+// A pixel of the picture: opaque, red, green and blue as 0..255.
+uint32_t pack(int red, int green, int blue)
+{
+	return 0xff000000u | (uint32_t)(red & 0xff) << 16 | (uint32_t)(green & 0xff) << 8 | (uint32_t)(blue & 0xff);
 }
 
 // The video signal, measured in clock cycles of the SX52.
@@ -179,7 +172,7 @@ int Video::toScreenColumn(int position) const
 	if (position > LAST_VISIBLE) position = LAST_VISIBLE;
 	int column = (position - FIRST_VISIBLE) * HORIZONTAL_SCALE;
 	// The scaling can lead past the last column (510 * 1.1 = 561)
-	if (column > screen->w) column = screen->w;
+	if (column > WIDTH) column = WIDTH;
 	return column;
 }
 
@@ -205,14 +198,14 @@ void Video::wheelColour(int phase, int* red, int* green, int* blue)
 
 // The colour of a fragment: the chroma is the phase against the colour burst, the
 // luminance gives the range of the channels. Chroma 15 is grey: the luminance itself.
-Uint32 Video::fragmentPixel(unsigned short colour) const
+uint32_t Video::fragmentPixel(unsigned short colour) const
 {
 	int luminance = colour & 0xf;
 	int chroma = (colour >> 4) & 0xf;
 	if (chroma == 15)
 	{
-		Uint32 i = intensity[luminance];
-		return SDL_MapRGB(screen->format, i, i, i);
+		uint32_t i = intensity[luminance];
+		return pack(i, i, i);
 	}
 
 	int phase = (chroma - (int)burst) % WHEEL_STEPS;
@@ -221,18 +214,17 @@ Uint32 Video::fragmentPixel(unsigned short colour) const
 	wheelColour(phase, &red, &green, &blue);
 	int lowest = LOWEST[luminance];
 	int range = HIGHEST[luminance] - lowest;
-	return SDL_MapRGB(screen->format,
-	                  lowest + range * red / 255,
-	                  lowest + range * green / 255,
-	                  lowest + range * blue / 255);
+	return pack(lowest + range * red / 255,
+	            lowest + range * green / 255,
+	            lowest + range * blue / 255);
 }
 
-void Video::fillRow(int row, int from, int to, Uint32 pixel)
+void Video::fillRow(int row, int from, int to, uint32_t pixel)
 {
-	unsigned char *start = (unsigned char*)screen->pixels + row * screen->pitch;
+	uint32_t* start = &picture[0] + row * WIDTH;
 	for (int k = from; k < to; k++)
 	{
-		*(Uint32*)(start + k * screen->format->BytesPerPixel) = pixel;
+		start[k] = pixel;
 	}
 }
 
@@ -242,21 +234,9 @@ void Video::drawFragment(int cycle, int previous)
 {
 	measureFragment(cycle, previous);
 
-	// A surface that needs locking and cannot be locked is skipped,
-	// but the signal bookkeeping must go on.
-	if (SDL_MUSTLOCK(screen) && SDL_LockSurface(screen) != 0)
-	{
-		return;
-	}
-
 	x0 = toScreenColumn(x0);
 	x = toScreenColumn(x);
-	Uint32 pixel = fragmentPixel(slfragments[fragmentcounter].colour);
+	uint32_t pixel = fragmentPixel(slfragments[fragmentcounter].colour);
 	fillRow(y, x0, x, pixel);
 	fillRow(y + 1, x0, x, pixel);
-
-	if (SDL_MUSTLOCK(screen))
-	{
-		SDL_UnlockSurface(screen);
-	}
 }

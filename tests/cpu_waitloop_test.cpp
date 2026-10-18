@@ -150,9 +150,7 @@ TEST_P(WaitLoopProgramTest, RunsLikeTheSteppedCpu) {
         ASSERT_EQ(0, memcmp(stepped.getRAM(), fast.getRAM(), 262)) << "step " << steps;
     }
     EXPECT_EQ(0, memcmp(stepped.getSRAM(), fast.getSRAM(), 131072));
-    SDL_Surface* a = videoStepped.getScreen();
-    SDL_Surface* b = videoFast.getScreen();
-    EXPECT_EQ(0, memcmp(a->pixels, b->pixels, a->pitch * a->h));
+    EXPECT_EQ(0, memcmp(videoStepped.pixels(), videoFast.pixels(), videoStepped.pitch() * videoStepped.height()));
 }
 
 INSTANTIATE_TEST_SUITE_P(Examples, WaitLoopProgramTest,

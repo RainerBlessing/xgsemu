@@ -187,7 +187,7 @@ TEST_F(CpuTest, ExecuteIncFrInstruction) {
 // Teste Joystick-Funktionalität
 TEST_F(CpuTest, JoystickRegisterAccessible) {
     // Hole Joystick-Register
-    Uint16* joystickReg = cpu->getJoystrickr();
+    unsigned short* joystickReg = cpu->getJoystrickr();
     
     // Setze einen Wert
     *joystickReg = 0x1234;

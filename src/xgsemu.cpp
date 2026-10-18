@@ -102,7 +102,6 @@ XGSEmu::XGSEmu(const std::string& appDir, const std::string& title)
     : window(NULL),
       renderer(NULL),
       texture(NULL),
-      emuDisplay(NULL),
       menuActive(false),
       video(NULL),
       cpu(NULL),
@@ -149,7 +148,6 @@ XGSEmu::XGSEmu(const std::string& appDir, const std::string& title)
     
     // Initialize video system
     video = new Video();
-    emuDisplay = video->getScreen();
     
     // Erstelle Textur für das Emulator-Display
     updateTexture();
@@ -470,25 +468,19 @@ void XGSEmu::update() {
     }
 }
 void XGSEmu::updateTexture() {
-    if (emuDisplay != nullptr) {
-        // Bei existierender Textur, nur aktualisieren statt neu erstellen
-        if (texture != NULL) {
-            // Aktualisiere Textur anstatt sie jedes Mal neu zu erstellen
-            SDL_UpdateTexture(texture, NULL, emuDisplay->pixels, emuDisplay->pitch);
-        } else {
-            // Create a texture from the surface
-            texture = SDL_CreateTextureFromSurface(renderer, emuDisplay);
-            
-            if (texture == NULL) {
-                printf("Textur konnte nicht erstellt werden! SDL-Fehler: %s\n", SDL_GetError());
-                printf("emuDisplay Info: %dx%d, %d bpp\n", 
-                       emuDisplay->w, emuDisplay->h, 
-                       emuDisplay->format ? emuDisplay->format->BitsPerPixel : 0);
-            }
-        }
-    } else {
-        printf("emuDisplay ist NULL! Kann keine Textur erstellen.\n");
+    if (video == nullptr || renderer == NULL) {
+        return;
     }
+    if (texture == NULL) {
+        // the pixels of Video are 0xAARRGGBB
+        texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
+                                    video->width(), video->height());
+        if (texture == NULL) {
+            printf("Textur konnte nicht erstellt werden! SDL-Fehler: %s\n", SDL_GetError());
+            return;
+        }
+    }
+    SDL_UpdateTexture(texture, NULL, video->pixels(), video->pitch());
 }
 
 void XGSEmu::render() {
@@ -537,12 +529,6 @@ void XGSEmu::loadHexFile(const std::string& path) {
         return;
     }
 
-    // Clean up existing components
-    if (texture != NULL) {
-        SDL_DestroyTexture(texture);
-        texture = NULL;
-    }
-    
     if (video != nullptr) {
         delete video;
         video = nullptr;
@@ -550,18 +536,6 @@ void XGSEmu::loadHexFile(const std::string& path) {
     
     // Create new video system
     video = new Video();
-    
-    
-    emuDisplay = video->getScreen();
-    if (emuDisplay == nullptr) {
-        printf("Fehler: Video-Surface konnte nicht erstellt werden!\n");
-        return;
-    }
-    
-    printf("Video-Surface erstellt: %dx%d, %d bpp\n", 
-           emuDisplay->w, emuDisplay->h, 
-           emuDisplay->format ? emuDisplay->format->BitsPerPixel : 0);
-    
     // Clean up existing CPU
     if (cpu != nullptr) {
         delete cpu;

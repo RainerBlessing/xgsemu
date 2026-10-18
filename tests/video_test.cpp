@@ -47,20 +47,24 @@ protected:
         drawTwoFrames(video, cycle);
     }
 
-    static Uint32 pixel(Video& target, int x, int y) {
-        SDL_Surface* screen = target.getScreen();
-        Uint8* row = (Uint8*)screen->pixels + y * screen->pitch;
-        return ((Uint32*)row)[x];
+    static uint32_t pixel(Video& target, int x, int y) {
+        return target.pixels()[y * target.width() + x];
     }
 
-    Uint32 pixel(int x, int y) {
+    // red, green and blue of a drawn pixel
+    static void unpack(uint32_t value, int* red, int* green, int* blue) {
+        *red = (value >> 16) & 0xff;
+        *green = (value >> 8) & 0xff;
+        *blue = value & 0xff;
+    }
+
+    uint32_t pixel(int x, int y) {
         return pixel(video, x, y);
     }
 
     static int lastRowReachingTheRightEdge(Video& target) {
-        SDL_Surface* screen = target.getScreen();
-        for (int y = screen->h - 1; y >= 0; y--) {
-            if (pixel(target, screen->w - 1, y) != 0) {
+        for (int y = target.height() - 1; y >= 0; y--) {
+            if (pixel(target, target.width() - 1, y) != 0) {
                 return y;
             }
         }
@@ -72,9 +76,8 @@ protected:
     }
 
     static int lastDrawnRow(Video& target) {
-        SDL_Surface* screen = target.getScreen();
-        for (int y = screen->h - 1; y >= 0; y--) {
-            for (int x = 0; x < screen->w; x++) {
+        for (int y = target.height() - 1; y >= 0; y--) {
+            for (int x = 0; x < target.width(); x++) {
                 if (pixel(target, x, y) != 0) {
                     return y;
                 }
@@ -121,15 +124,13 @@ TEST_F(VideoTest, ASecondVideoObjectStartsWithItsOwnState) {
     int secondCycle = 0;
     drawTwoFrames(second, secondCycle);
 
-    SDL_Surface* a = video.getScreen();
-    SDL_Surface* b = second.getScreen();
-    EXPECT_EQ(0, memcmp(a->pixels, b->pixels, a->pitch * a->h));
+    EXPECT_EQ(0, memcmp(video.pixels(), second.pixels(), video.pitch() * video.height()));
 }
 
 TEST_F(VideoTest, ResetForgetsTheTimingOfTheOldSignal) {
     drawTwoFrames();
     video.reset();
-    memset(video.getScreen()->pixels, 0, video.getScreen()->pitch * video.getScreen()->h);
+    memset(video.pixels(), 0, video.pitch() * video.height());
     // A new program starts counting cycles at 0 again. A stale timestamp
     // from before the reset must not swallow the first vsync.
     cycle = 0;
@@ -141,9 +142,9 @@ TEST_F(VideoTest, ResetForgetsTheTimingOfTheOldSignal) {
 // 100 to 0 and both are even.
 TEST_F(VideoTest, EveryOtherFrameIsDrawnAlsoAcrossTheFrameCounterWrap) {
     int drawn = 0;
-    SDL_Surface* screen = video.getScreen();
+    uint32_t* screen = video.pixels();
     for (int frame = 0; frame < 202; frame++) {
-        memset(screen->pixels, 0, screen->pitch * screen->h);
+        memset(screen, 0, video.pitch() * video.height());
         drawLongLineAcrossRingBufferWrap(video, cycle);
         if (lastRowReachingTheRightEdge() >= 0) {
             drawn++;
@@ -184,9 +185,8 @@ protected:
     }
 
     int firstDrawnRow() {
-        SDL_Surface* screen = video.getScreen();
-        for (int y = 0; y < screen->h; y++) {
-            for (int x = 0; x < screen->w; x++) {
+        for (int y = 0; y < video.height(); y++) {
+            for (int x = 0; x < video.width(); x++) {
                 if (pixel(x, y) != 0) {
                     return y;
                 }
@@ -195,12 +195,8 @@ protected:
         return -1;
     }
 
-    void rgb(Uint32 pixelValue, int* r, int* g, int* b) {
-        Uint8 red, green, blue;
-        SDL_GetRGB(pixelValue, video.getScreen()->format, &red, &green, &blue);
-        *r = red;
-        *g = green;
-        *b = blue;
+    void rgb(uint32_t pixelValue, int* r, int* g, int* b) {
+        unpack(pixelValue, r, g, b);
     }
 };
 
@@ -230,8 +226,8 @@ TEST_F(VideoPictureTest, GreyFragmentsFollowTheLuminance) {
         signal(fresh, clock, 4400, SYNC);
         int row = lastDrawnRow(fresh);
         ASSERT_GE(row, 0);
-        Uint8 red, green, blue;
-        SDL_GetRGB(pixel(fresh, 100, row), fresh.getScreen()->format, &red, &green, &blue);
+        int red, green, blue;
+        unpack(pixel(fresh, 100, row), &red, &green, &blue);
         EXPECT_EQ(levels[luminance], red);
         EXPECT_EQ(red, green);
         EXPECT_EQ(green, blue);
@@ -268,8 +264,7 @@ TEST_F(VideoPictureTest, TheLineCounterStopsAtTheLowerEdge) {
     for (int i = 0; i < 400; i++) {
         line({0xff}, {4400});
     }
-    SDL_Surface* screen = video.getScreen();
-    for (int y = 522; y < screen->h; y++) {
+    for (int y = 522; y < video.height(); y++) {
         EXPECT_EQ(0u, pixel(100, y)) << "row " << y;
     }
     EXPECT_NE(0u, pixel(100, 520));
@@ -372,8 +367,8 @@ protected:
         int row = lastDrawnRow(fresh);
         Rgb colour = {-1, -1, -1};
         if (row >= 0) {
-            Uint8 red, green, blue;
-            SDL_GetRGB(pixel(fresh, 100, row), fresh.getScreen()->format, &red, &green, &blue);
+            int red, green, blue;
+            unpack(pixel(fresh, 100, row), &red, &green, &blue);
             colour.red = red;
             colour.green = green;
             colour.blue = blue;
