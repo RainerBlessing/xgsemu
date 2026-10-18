@@ -229,9 +229,9 @@ table:  dw 123, start       ; raw 12 bit words
 
 | Line | Meaning |
 |---|---|
-| `name:` | A label, alone or in front of an instruction. `jmp` uses its low 9 bits, `call` its low 8 bits; a `call` to a label in the second half of a page is an error. |
+| `name:` | A label, alone or in front of an instruction. `jmp` uses its low 9 bits, `call` its low 8 bits; a `call` to a label in the second half of a page is an error. A label in front of `org`, `firsthalf` or `samepage` is the address where the code goes on. A label behind the last word of the ROM cannot be a jump target. |
 | `org addr` | Continue at this address. The ROM has 4096 words, unused ones get `0xFFF`. |
-| `name equ value` | A name for a number (register, literal), usable everywhere a number is, also before the definition. |
+| `name equ value` | A name for a number (register, literal), usable everywhere a number is, also before the definition. Only the values of `org`, `samepage` and `equ` itself have to be defined above the line. |
 | `dw value, ...` | Raw 12 bit words. Values can be numbers, names or labels (a label keeps its full address). |
 | `firsthalf` | Moves on to the start of the next page if the address is in the second half of a page, because a `call` reaches only the first half. |
 | `samepage n` | Moves on to the start of the next page if the next `n` words would not fit on the rest of this page: for a routine that has to stay on one page. |

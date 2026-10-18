@@ -487,3 +487,41 @@ TEST_F(AssembleSourceTest, AutopageSetsThePageTheLabelHasAfterTheInsertions) {
         }
     }
 }
+
+TEST_F(AssembleSourceTest, DwWithATrailingCommaIsAnErrorBecauseItWouldLeaveAHole) {
+    EXPECT_FALSE(assembleText("dw 1, 2,\nx: nop\n"));
+    EXPECT_NE(std::string::npos, error.find("line 1")) << error;
+}
+
+// org, firsthalf and samepage move the address, a label in front of them is where the code goes on.
+TEST_F(AssembleSourceTest, ALabelInFrontOfOrgIsTheNewAddress) {
+    std::map<std::string, int> labels;
+    ASSERT_TRUE(assembleSource("start: org 100\nnop\n", rom, ROM_SIZE, &error, &labels)) << error;
+    EXPECT_EQ(0x100, labels.at("start"));
+}
+
+TEST_F(AssembleSourceTest, ALabelInFrontOfFirsthalfIsTheNextPageIfItMoves) {
+    std::map<std::string, int> labels;
+    ASSERT_TRUE(assembleSource("org 180\nfn: firsthalf\nnop\n", rom, ROM_SIZE, &error, &labels)) << error;
+    EXPECT_EQ(0x200, labels.at("fn"));
+    EXPECT_EQ(0x000, rom[0x200]);
+}
+
+TEST_F(AssembleSourceTest, ALabelInFrontOfSamepageIsTheNextPageIfItMoves) {
+    std::map<std::string, int> labels;
+    ASSERT_TRUE(assembleSource("org 1ff\ntable: samepage 4\ndw 1\n", rom, ROM_SIZE, &error, &labels)) << error;
+    EXPECT_EQ(0x200, labels.at("table"));
+    EXPECT_EQ(1, rom[0x200]);
+}
+
+TEST_F(AssembleSourceTest, ALabelInFrontOfSamepageStaysIfTheRoutineFits) {
+    std::map<std::string, int> labels;
+    ASSERT_TRUE(assembleSource("org 100\ntable: samepage 4\ndw 1\n", rom, ROM_SIZE, &error, &labels)) << error;
+    EXPECT_EQ(0x100, labels.at("table"));
+}
+
+// A label behind the last word is not an address a jump can reach: it would be encoded as jmp 0.
+TEST_F(AssembleSourceTest, JumpToALabelBeyondTheEndOfTheRomIsAnError) {
+    EXPECT_FALSE(assembleText("org fff\njmp end\nend:\n"));
+    EXPECT_NE(std::string::npos, error.find("end")) << error;
+}

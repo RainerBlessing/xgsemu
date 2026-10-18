@@ -460,6 +460,50 @@ TEST_F(CpuTest, ClrSetsTheZeroFlag) {
     EXPECT_EQ(1 << 2, cpu->getRAM()[3] & (1 << 2));
 }
 
+// The port changes at the end of the instruction, whichever instruction writes it.
+TEST_F(CpuTest, PortReIsWrittenAtTheSameCycleByMovClrIncAndDec) {
+    const USHORT opcodes[] = {0x029, 0x069, 0x2a9, 0x0e9};  // mov RE,w / clr RE / inc RE / dec RE
+    for (size_t i = 0; i < sizeof(opcodes) / sizeof(opcodes[0]); i++) {
+        SCOPED_TRACE(i);
+        *cpu->getPC() = 0x100;
+        setRomValue(0x100, opcodes[i]);
+        int before = cpu->getCycle();
+        cpu->execute();
+        EXPECT_EQ(before + 1, videoMock->lastCycle);
+        EXPECT_EQ(before + 1, cpu->getCycle());
+    }
+}
+
+// The program counter has 12 bits: after the last word comes the first one.
+TEST_F(CpuTest, ProgramCounterWrapsAroundAfterTheLastWord) {
+    *cpu->getPC() = 0xfff;
+    setRomValue(0xfff, 0xc01);   // mov w,#1
+    cpu->execute();
+    EXPECT_EQ(0, *cpu->getPC());
+}
+
+TEST_F(CpuTest, SkipAtTheLastWordContinuesAtTheFirstOnes) {
+    *cpu->getPC() = 0xffe;
+    cpu->getRAM()[0x0c] = 0;
+    setRomValue(0xffe, 0x7ec);   // sb 0x0c.7 ... register bit is 0: no skip
+    cpu->execute();
+    EXPECT_EQ(0xfff, *cpu->getPC());
+    cpu->getRAM()[0x0c] = 0x80;
+    *cpu->getPC() = 0xffe;
+    cpu->execute();              // skips word 0xfff
+    EXPECT_EQ(0, *cpu->getPC());
+}
+
+TEST_F(CpuTest, CallAtTheLastWordReturnsToTheFirstWord) {
+    *cpu->getPC() = 0xfff;
+    setRomValue(0xfff, 0x900 | 0x20);   // call 0x20
+    setRomValue(0x20, 0x00c);           // ret
+    cpu->execute();
+    EXPECT_EQ(0x20, *cpu->getPC());
+    cpu->execute();
+    EXPECT_EQ(0, *cpu->getPC());
+}
+
 // The external SRAM is addressed through port C and D: bit 4 of RC clocks one
 // bit (bit 5) into a 12 bit page register, bit 6 is the chip enable.
 class CpuSramTest : public CpuTest {
@@ -517,6 +561,17 @@ TEST_F(CpuSramTest, Ra7SelectsTheUpperHalfOfTheSram) {
 
     EXPECT_EQ(0x5a, cpu->getSRAM()[0x10000 | (0xfff << 4) | 0x3]);
     EXPECT_EQ(0x00, cpu->getSRAM()[(0xfff << 4) | 0x3]);
+}
+
+// The SRAM sees every write to port C, not only setb and clrb.
+TEST_F(CpuSramTest, MovRcWithChipEnableLowWritesTheSram) {
+    configureAllPortsAsOutputs();
+    unsigned char* ram = cpu->getRAM();
+    ram[8] = 0x5a;            // RD, the data
+    ram[261] = 0x03;          // W: chip enable 0, write, low address bits 3
+    run(0x027);               // mov RC,w
+
+    EXPECT_EQ(0x5a, cpu->getSRAM()[0x3]);
 }
 
 TEST_F(CpuTest, ResetPutsTheModeRegisterBackTo1F) {
