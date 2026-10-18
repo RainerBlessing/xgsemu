@@ -26,8 +26,8 @@ Config::Config(const std::string& path)
 
 std::string Config::defaultPath()
 {
-	std::string directory;
 #ifdef _WIN32
+	std::string directory;
 	char appData[MAX_PATH];
 	if (SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_APPDATA, NULL, 0, appData)))
 	{
@@ -40,22 +40,25 @@ std::string Config::defaultPath()
 	}
 	return directory + "\\config.ini";
 #else
-	const char* home = getenv("HOME");
-	if (home != NULL)
-	{
-		// ~/.config may not be there yet, mkdir makes one directory only
-		std::string config = std::string(home) + "/.config";
-		directory = config + "/xgsemu";
-		mkdir(config.c_str(), 0755);
-		mkdir(directory.c_str(), 0755);
-	}
-	else
-	{
-		directory = ".";
-	}
-	return directory + "/config.ini";
+	return pathInHome(getenv("HOME"));
 #endif
 }
+
+#ifndef _WIN32
+std::string Config::pathInHome(const char* home)
+{
+	if (home == NULL)
+	{
+		return "./config.ini";
+	}
+	// ~/.config may not be there yet, mkdir makes one directory only
+	std::string config = std::string(home) + "/.config";
+	std::string directory = config + "/xgsemu";
+	mkdir(config.c_str(), 0755);
+	mkdir(directory.c_str(), 0755);
+	return directory + "/config.ini";
+}
+#endif
 
 std::string Config::get(const std::string& key, const std::string& defaultValue) const
 {

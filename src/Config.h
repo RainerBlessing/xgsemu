@@ -17,6 +17,14 @@ public:
 	/** The file in the configuration directory of the user (it is created if needed). */
 	static std::string defaultPath();
 
+#ifndef _WIN32
+	/**
+	 * The file below a home directory: home/.config/xgsemu/config.ini. The directories are
+	 * created if needed. Without a home directory (NULL) it is config.ini in the current directory.
+	 */
+	static std::string pathInHome(const char* home);
+#endif
+
 	std::string get(const std::string& key, const std::string& defaultValue = "") const;
 
 	/** Sets a value and writes the file. */

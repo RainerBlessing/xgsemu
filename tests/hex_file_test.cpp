@@ -395,3 +395,12 @@ TEST_F(HexFileWriteTest, AFileThatCannotBeWrittenIsReported) {
     EXPECT_FALSE(HexFile::writeFile("no_such_directory/x.hex", &rom.sx, &error));
     EXPECT_NE(std::string::npos, error.find("No such file")) << error;
 }
+
+TEST_F(HexFileReadTest, AnExtendedAddressRecordWithAWrongChecksumIsAnError) {
+    std::string line = hexRecord(0x0000, 4, {0x00, 0x00});
+    line[line.size() - 2] = line[line.size() - 2] == '0' ? '1' : '0';
+    TestFile file(".hex", line + hexRecord(0x0000, 0, {0x07, 0x00}) + END);
+    std::string error;
+    EXPECT_FALSE(HexFile::readFile(file.name(), &rom.sx, &error));
+    EXPECT_EQ("line 1: incorrect checksum", error);
+}
