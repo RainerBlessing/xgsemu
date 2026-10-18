@@ -20,23 +20,12 @@
 
 #include "xgsemu.h"
 #include "Video.h"
-#include "cpu.h"
-#include "Bu8763.h"
 #include "DisplayLayout.h"
-#include "filehandler.h"
-#include <string.h>
+#include "InputMap.h"
 #include <fstream>
-#include <iostream>
 #include <algorithm>
-#include <sys/stat.h>
 #include <dirent.h>
 #include <vector>
-#include <map>
-
-#ifdef _WIN32
-#include <windows.h>
-#include <shlobj.h>
-#endif
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -71,47 +60,14 @@ extern "C" EMSCRIPTEN_KEEPALIVE void xgsReset() {
 }
 #endif
 
-// Helper function to get configuration directory
-std::string getConfigDir() {
-    std::string configDir;
-    
-#ifdef _WIN32
-    char appData[MAX_PATH];
-    if (SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_APPDATA, NULL, 0, appData))) {
-        configDir = std::string(appData) + "\\XGSEmu";
-        // Create directory if it doesn't exist
-        CreateDirectoryA(configDir.c_str(), NULL);
-    } else {
-        configDir = ".";
-    }
-#else
-    const char* homeDir = getenv("HOME");
-    if (homeDir != NULL) {
-        configDir = std::string(homeDir) + "/.config/xgsemu";
-        // Create directory if it doesn't exist
-        mkdir(configDir.c_str(), 0755);
-    } else {
-        configDir = ".";
-    }
-#endif
-
-    return configDir;
-}
-
-XGSEmu::XGSEmu(const std::string& appDir, const std::string& title)
+XGSEmu::XGSEmu(const std::string& title)
     : window(NULL),
       renderer(NULL),
       texture(NULL),
-      menuActive(false),
-      video(NULL),
-      cpu(NULL),
-      joystickr(NULL),
-      sound(NULL),
-      audioDevice(0),
-      audioSampleRate(44100),
+      audio(machine.getSound()),
+      config(Config::defaultPath()),
       running(true),
       isFullscreen(false),
-      appDir(appDir),
       title(title)
 {
     // Initialize SDL2
@@ -146,95 +102,27 @@ XGSEmu::XGSEmu(const std::string& appDir, const std::string& title)
     // Setze Renderer-Farbe auf Schwarz
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     
-    // Initialize video system
-    video = new Video();
-    
     // Erstelle Textur für das Emulator-Display
     updateTexture();
     
     // Lade letzte Verzeichniskonfiguration
-    lastDirectory = loadConfig("LoadDirectory", ".");
+    lastDirectory = config.get("LoadDirectory", ".");
 
-    sound = new Bu8763();
-    openAudio();
-}
-
-void XGSEmu::openAudio() {
-    // Kein Audio-Geraet ist kein Grund, den Emulator nicht zu starten.
-    if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
-        printf("Audio konnte nicht initialisiert werden! SDL-Fehler: %s\n", SDL_GetError());
-        return;
-    }
-
-    SDL_AudioSpec wanted;
-    SDL_AudioSpec obtained;
-    SDL_zero(wanted);
-    wanted.freq = audioSampleRate;
-    wanted.format = AUDIO_S16SYS;
-    wanted.channels = 1;
-#ifdef __EMSCRIPTEN__
-    // Emulation and audio share one thread in the browser. A bigger buffer
-    // (about 93 ms) survives frames that take longer than 1024 samples (23 ms).
-    wanted.samples = 4096;
-#else
-    wanted.samples = 1024;
-#endif
-    wanted.callback = audioCallback;
-    wanted.userdata = this;
-
-    audioDevice = SDL_OpenAudioDevice(NULL, 0, &wanted, &obtained, 0);
-    if (audioDevice == 0) {
-        printf("Audio-Geraet konnte nicht geoeffnet werden! SDL-Fehler: %s\n", SDL_GetError());
-        return;
-    }
-    audioSampleRate = obtained.freq;
-    SDL_PauseAudioDevice(audioDevice, 0);
+    audio.open();
 }
 
 void XGSEmu::setJoystick(Uint16 mask, bool down) {
-    if (joystickr) {
-        if (down) {
-            *joystickr |= mask;
-            pressedUnseen |= mask;
-            releaseDeferred &= ~mask;
-        } else if (pressedUnseen & mask) {
-            // On a slow device a whole tap can arrive between two emulated frames.
-            // The program only reads the joystick once per frame, so the release
-            // waits until at least one frame has seen the press.
-            releaseDeferred |= mask;
-        } else {
-            *joystickr &= ~mask;
-        }
-    }
+    machine.setJoystick(mask, down);
 }
 
 void XGSEmu::setMuted(bool muted) {
-    if (audioDevice != 0) {
-        SDL_PauseAudioDevice(audioDevice, muted ? 1 : 0);
-    }
-}
-
-void XGSEmu::closeAudio() {
-    if (audioDevice != 0) {
-        SDL_CloseAudioDevice(audioDevice);
-        audioDevice = 0;
-    }
-}
-
-void XGSEmu::audioCallback(void* userdata, Uint8* stream, int length) {
-    XGSEmu* emu = static_cast<XGSEmu*>(userdata);
-    emu->sound->render(reinterpret_cast<short*>(stream), length / sizeof(short), emu->audioSampleRate);
+    audio.setMuted(muted);
 }
 
 XGSEmu::~XGSEmu() {
-    // Der Audio-Thread greift auf sound zu, deshalb zuerst schliessen.
-    closeAudio();
+    // Der Audio-Thread greift auf den Soundchip zu, deshalb zuerst schliessen.
+    audio.close();
 
-    // Clean up emulator components
-    delete cpu;
-    delete sound;
-    delete video;
-    
     // Clean up SDL2 components
     if (texture != NULL) {
         SDL_DestroyTexture(texture);
@@ -287,10 +175,10 @@ int XGSEmu::run(const std::string& hexFilePath) {
             // Führe einen Frame aus
             handleEvents();
             
-            if (cpu != nullptr) {
+            if (machine.isLoaded()) {
                 update();
             } else {
-                // CPU nicht initialisiert - Warte auf Benutzeraktion
+                // Kein Programm - Warte auf Benutzeraktion
                 SDL_Delay(100);
             }
             
@@ -335,14 +223,14 @@ void XGSEmu::frame() {
     bool ran = false;
     while (frameDebtMs >= frameMs) {
         frameDebtMs -= frameMs;
-        if (cpu != nullptr) {
-            cpu->runCycles(CYCLES_PER_FRAME);
+        if (machine.isLoaded()) {
+            machine.runFrame();
             ran = true;
             emulatedFrames++;
         }
     }
     if (now - lastSpeedReportMs >= 1000) {
-        if (cpu != nullptr) {
+        if (machine.isLoaded()) {
             // emulated frames per second: 60 means full speed
             double fps = emulatedFrames * 1000.0 / (now - lastSpeedReportMs);
             EM_ASM({ if (Module.onSpeed) Module.onSpeed($0); }, fps);
@@ -351,11 +239,6 @@ void XGSEmu::frame() {
         lastSpeedReportMs = now;
     }
     if (ran) {
-        if (joystickr) {
-            *joystickr &= ~releaseDeferred;
-        }
-        releaseDeferred = 0;
-        pressedUnseen = 0;
         updateTexture();
     }
     render();
@@ -372,7 +255,6 @@ void XGSEmu::handleEvents() {
                 break;
                 
             case SDL_KEYDOWN:
-                // Handle key presses - SDL2 version
                 switch (event.key.keysym.sym) {
                     case SDLK_ESCAPE:
 #ifndef __EMSCRIPTEN__
@@ -395,54 +277,17 @@ void XGSEmu::handleEvents() {
                         }
                         break;
                         
-                    case SDLK_UP:
-                        if (joystickr) *joystickr |= 0x1;
-                        break;
-                        
-                    case SDLK_RIGHT:
-                        if (joystickr) *joystickr |= 0x8;
-                        break;
-                        
-                    case SDLK_DOWN:
-                        if (joystickr) *joystickr |= 0x2;
-                        break;
-                        
-                    case SDLK_LEFT:
-                        if (joystickr) *joystickr |= 0x4;
-                        break;
-                        
-                    case SDLK_LCTRL:
-                    case SDLK_RCTRL:
-                    case SDLK_SPACE:
-                        if (joystickr) *joystickr |= 0x10;
+                    default:
+                        if (unsigned short button = joystickMaskForKey(event.key.keysym.sym)) {
+                            machine.setJoystick(button, true);
+                        }
                         break;
                 }
                 break;
                 
             case SDL_KEYUP:
-                // Game controls
-                switch (event.key.keysym.sym) {
-                    case SDLK_UP:
-                        if (joystickr) *joystickr &= ~0x1;
-                        break;
-                        
-                    case SDLK_RIGHT:
-                        if (joystickr) *joystickr &= ~0x8;
-                        break;
-                        
-                    case SDLK_DOWN:
-                        if (joystickr) *joystickr &= ~0x2;
-                        break;
-                        
-                    case SDLK_LEFT:
-                        if (joystickr) *joystickr &= ~0x4;
-                        break;
-                        
-                    case SDLK_LCTRL:
-                    case SDLK_RCTRL:
-                    case SDLK_SPACE:
-                        if (joystickr) *joystickr &= ~0x10;
-                        break;
+                if (unsigned short button = joystickMaskForKey(event.key.keysym.sym)) {
+                    machine.setJoystick(button, false);
                 }
                 break;
                 
@@ -459,28 +304,25 @@ void XGSEmu::handleEvents() {
 }
 
 void XGSEmu::update() {
-    if (cpu != nullptr) {
-        // Execute one frame of clock cycles
-        cpu->runCycles(CYCLES_PER_FRAME);
-        
-        // Update texture from emuDisplay
-        updateTexture();
-    }
+    machine.runFrame();
+    updateTexture();
 }
+
 void XGSEmu::updateTexture() {
-    if (video == nullptr || renderer == NULL) {
+    if (renderer == NULL) {
         return;
     }
+    const Video& video = machine.getVideo();
     if (texture == NULL) {
         // the pixels of Video are 0xAARRGGBB
         texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
-                                    video->width(), video->height());
+                                    video.width(), video.height());
         if (texture == NULL) {
             printf("Textur konnte nicht erstellt werden! SDL-Fehler: %s\n", SDL_GetError());
             return;
         }
     }
-    SDL_UpdateTexture(texture, NULL, video->pixels(), video->pitch());
+    SDL_UpdateTexture(texture, NULL, video.pixels(), video.pitch());
 }
 
 void XGSEmu::render() {
@@ -520,62 +362,25 @@ void XGSEmu::loadHexFile(const std::string& path) {
         return;
     }
     
-    // Read the file first: if it cannot be read the running program stays as it is
-    u16 rom[4096];
-    u16 fusex;
     printf("Lade ROM-Datei: %s\n", path.c_str());
-    if (!FileHandler::readFile(path.c_str(), rom, &fusex)) {
+    // If the file cannot be read the running program stays as it is
+    if (!machine.load(path)) {
         printf("Fehler beim Lesen der ROM-Datei!\n");
         return;
     }
-
-    if (video != nullptr) {
-        delete video;
-        video = nullptr;
-    }
+    printf("ROM-Datei erfolgreich geladen.\n");
+    updateTexture();
     
-    // Create new video system
-    video = new Video();
-    // Clean up existing CPU
-    if (cpu != nullptr) {
-        delete cpu;
-        cpu = nullptr;
-    }
-    
-    // Create new CPU and load file
-    try {
-        video->reset(); // the new program counts cycles from 0
-        cpu = new Cpu(video);
-        joystickr = cpu->getJoystrickr();
-        sound->reset();
-        cpu->setSound(sound);
-        
-        memcpy(cpu->getROM(), rom, sizeof(rom));
-        cpu->setFusex(fusex); // CF: the carry is an input of ADD and SUB
-        printf("ROM-Datei erfolgreich geladen.\n");
-        
-        // Create new texture from the emulator display - NACH dem ROM-Laden
-        updateTexture();
-        
-        // Save directory in config
-        size_t lastSlash = path.find_last_of("/\\");
-        if (lastSlash != std::string::npos) {
-            lastDirectory = path.substr(0, lastSlash);
-            saveConfig("LoadDirectory", lastDirectory);
-        }
-    } catch (std::exception& e) {
-        printf("Exception beim Laden der HEX-Datei: %s\n", e.what());
-    } catch (...) {
-        printf("Unbekannte Exception beim Laden der HEX-Datei!\n");
+    // Save directory in config
+    size_t lastSlash = path.find_last_of("/\\");
+    if (lastSlash != std::string::npos) {
+        lastDirectory = path.substr(0, lastSlash);
+        config.set("LoadDirectory", lastDirectory);
     }
 }
 
 void XGSEmu::reset() {
-    if (cpu != nullptr) {
-        cpu->reset();
-        video->reset();
-        sound->reset();
-    }
+    machine.reset();
 }
 
 void XGSEmu::toggleFullscreen() {
@@ -607,59 +412,6 @@ bool XGSEmu::isHexOrObjFile(const std::string& path) {
     std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
     
     return (ext == "hex" || ext == "obj");
-}
-
-void XGSEmu::saveConfig(const std::string& key, const std::string& value) {
-    std::string configDir = getConfigDir();
-    std::string configFile = configDir + "/config.ini";
-    
-    // Read existing config
-    std::map<std::string, std::string> config;
-    std::ifstream inFile(configFile);
-    std::string line;
-    
-    while (std::getline(inFile, line)) {
-        size_t equalPos = line.find('=');
-        if (equalPos != std::string::npos) {
-            std::string k = line.substr(0, equalPos);
-            std::string v = line.substr(equalPos + 1);
-            config[k] = v;
-        }
-    }
-    inFile.close();
-    
-    // Update config
-    config[key] = value;
-    
-    // Write updated config
-    std::ofstream outFile(configFile);
-    for (const auto& pair : config) {
-        outFile << pair.first << "=" << pair.second << std::endl;
-    }
-    outFile.close();
-}
-
-std::string XGSEmu::loadConfig(const std::string& key, const std::string& defaultValue) {
-    std::string configDir = getConfigDir();
-    std::string configFile = configDir + "/config.ini";
-    
-    std::ifstream inFile(configFile);
-    if (!inFile.good()) {
-        return defaultValue;
-    }
-    
-    std::string line;
-    while (std::getline(inFile, line)) {
-        size_t equalPos = line.find('=');
-        if (equalPos != std::string::npos) {
-            std::string k = line.substr(0, equalPos);
-            if (k == key) {
-                return line.substr(equalPos + 1);
-            }
-        }
-    }
-    
-    return defaultValue;
 }
 
 void XGSEmu::openFileDialog() {

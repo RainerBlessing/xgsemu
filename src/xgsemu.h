@@ -23,17 +23,17 @@
 
 #include <SDL.h>
 #include <string>
-
-class Video;
-class Cpu;
-class Bu8763;
+#include "AudioOutput.h"
+#include "Config.h"
+#include "Machine.h"
 
 /**
- * SDL2-based XGS Emulator
+ * The window of the emulator: SDL2 shows the picture of the Machine, passes the keys to it
+ * and plays its sound.
  */
 class XGSEmu {
 public:
-    XGSEmu(const std::string& appDir, const std::string& title);
+    XGSEmu(const std::string& title);
     ~XGSEmu();
     
     int run(const std::string& hexFilePath = "");
@@ -53,54 +53,38 @@ private:
     void render();
     void updateTexture();
     void openFileDialog();
-    void openAudio();
-    void closeAudio();
-    static void audioCallback(void* userdata, Uint8* stream, int length);
     
     // Helper methods
     bool isHexOrObjFile(const std::string& path);
-    void saveConfig(const std::string& key, const std::string& value);
-    std::string loadConfig(const std::string& key, const std::string& defaultValue = "");
     
     // SDL2 components
     SDL_Window* window;         // SDL2 Fenster
     SDL_Renderer* renderer;     // SDL2 Renderer
     SDL_Texture* texture;       // SDL2 Textur für das Emulator-Display
     
-    // Menu state (simplified)
-    bool menuActive;
-    
-    // Emulator components
-    Video* video;
-    Cpu* cpu;
-    Uint16* joystickr;
-    Uint16 pressedUnseen = 0;   // buttons pressed on the page that no frame has run with yet
-    Uint16 releaseDeferred = 0; // buttons released before a frame saw them
-    Bu8763* sound;
-    SDL_AudioDeviceID audioDevice;
-    int audioSampleRate;
+    // The emulated machine, and what is attached to it. The audio output uses the sound chip of
+    // the machine, so it comes after it.
+    Machine machine;
+    AudioOutput audio;
+    Config config;
     
     // State variables
     bool running;
     bool isFullscreen;
-    std::string appDir;
     std::string title;
     std::string lastDirectory;
     
     // Constants
     // 4:3 like a television, as high as the picture (525 lines)
-    const int WINDOW_WIDTH = 700;
-    const int WINDOW_HEIGHT = 525;
-    const int TARGET_FPS = 60;
+    static const int WINDOW_WIDTH = 700;
+    static const int WINDOW_HEIGHT = 525;
+    static const int TARGET_FPS = 60;
 #ifdef __EMSCRIPTEN__
     double lastFrameMs = 0;
     double frameDebtMs = 0;
     double lastSpeedReportMs = 0;
     int emulatedFrames = 0;
 #endif
-    // The speed of the SX52 is given by the clock cycles, not by the number of
-    // instructions (jmp and call take 3 cycles, iread 4).
-    const unsigned int CYCLES_PER_FRAME = 1333333; // 80MHz/60fps
 };
 
 #endif // XGSEMU_H

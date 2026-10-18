@@ -123,11 +123,22 @@ Click the picture once so it receives the keys and the browser allows sound.
 
 ### Tests
 
-The tests are built together with the emulator and run in well under a second:
+The tests are built together with the emulator and run in a few seconds. The tests of the
+CPU, the assembler and the disassembler are part of sxcpu and need no SDL:
 
 ```bash
-./unit_tests
+ctest
 ```
+
+### Source layout
+
+| Part | What it does |
+|---|---|
+| `sxcpu/` (submodule) | The SX52 (`Cpu`), assembler and disassembler. No SDL, the video and the sound chip are connected through `VideoPort` and `SoundPort`. |
+| `src/Machine` | The XGS ME without a window: CPU, video, sound chip and joystick. `load()`, `runFrame()`, `reset()`, `setJoystick()`. No SDL. |
+| `src/Video` | Turns the video signal of the program into a 560x525 picture (a pixel buffer). |
+| `src/Bu8763` | The sound chip. The audio thread reads it, the emulator thread writes it. |
+| `src/xgsemu`, `AudioOutput`, `InputMap`, `Config` | The SDL2 window: picture, keys, sound output, the remembered directory. |
 
 ### Additional Build Options
 

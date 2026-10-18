@@ -21,34 +21,12 @@
 #include <SDL.h>
 #include <stdio.h>
 #include <string>
-#include <fstream>
-#include <stdlib.h>
-#include <limits.h>
-#include <unistd.h>
 #include "xgsemu.h"
 
 // The version comes from project() in CMakeLists.txt
 #ifndef XGSE_VERSION
 #define XGSE_VERSION "unknown"
 #endif
-
-// Find application path (simplified version of wxFindAppPath)
-std::string findAppPath(const char* argv0) {
-    std::string path = argv0;
-    size_t lastSlash = path.find_last_of("/\\");
-    
-    if (lastSlash != std::string::npos) {
-        return path.substr(0, lastSlash);
-    }
-    
-    // If no slash found, use current directory
-    char currentDir[PATH_MAX];
-    if (getcwd(currentDir, PATH_MAX) != NULL) {
-        return std::string(currentDir);
-    }
-    
-    return ".";
-}
 
 int main(int argc, char* argv[]) {
     // Process command line arguments before anything is started
@@ -81,16 +59,12 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // Get application directory
-    std::string appDir = findAppPath(argv[0]);
-    
-    
     // Create emulator instance
 #ifdef __EMSCRIPTEN__
     // The page title (SDL sets it from the window title) needs no version number.
-    XGSEmu emulator(appDir, "XGameStation Emulator");
+    XGSEmu emulator("XGameStation Emulator");
 #else
-    XGSEmu emulator(appDir, std::string("XGSEmu ") + XGSE_VERSION);
+    XGSEmu emulator(std::string("XGSEmu ") + XGSE_VERSION);
 #endif
     
     // Start the emulator
