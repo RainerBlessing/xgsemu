@@ -464,3 +464,26 @@ TEST_F(AssembleSourceTest, SamepageWithAutopageDoesNotAddAPageInstructionBefore)
     ASSERT_TRUE(assembleText("autopage on\norg 1f0\nsamepage 40\nnop\n")) << error;
     EXPECT_EQ(0x000, rom[0x200]);
 }
+
+// A page instruction moves the label it jumps to into the next page: the page it sets has to be the new one
+
+TEST_F(AssembleSourceTest, AutopageSetsThePageTheLabelHasAfterTheInsertions) {
+    // wherever the label is around the end of the page: the page that is set is the page it ends up in
+    for (int count = 0x3f0; count < 0x40a; count++) {
+        std::string source = "autopage on\njmp target\n";
+        for (int i = 0; i < count; i++) {
+            source += "nop\n";
+        }
+        source += "target: nop\n";
+        std::map<std::string, int> labels;
+        ASSERT_TRUE(assembleSource(source, rom, ROM_SIZE, &error, &labels)) << error;
+        int address = labels.at("target");
+        int jump = rom[0] >= 0x010 && rom[0] <= 0x017 ? 1 : 0;
+        EXPECT_EQ(0xa00 | (address & 0x1ff), rom[jump]) << count;
+        if (jump == 1) {
+            EXPECT_EQ(0x010 | (address >> 9), rom[0]) << "label at " << address << ", " << count << " nops";
+        } else {
+            EXPECT_EQ(0, address >> 9) << count;
+        }
+    }
+}

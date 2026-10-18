@@ -852,7 +852,7 @@ protected:
 
     // loads the program at address 0 and clears the rest
     void program(const std::vector<USHORT>& words) {
-        for (int i = 0; i < 64; i++) {
+        for (int i = 0; i < 1024; i++) {
             setRomValue(i, i < (int)words.size() ? words[i] : NOP);
         }
         *cpu->getPC() = 0;
