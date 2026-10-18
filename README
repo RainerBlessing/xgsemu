@@ -1,6 +1,0 @@
-This is an XGS emulator. Interrupts are not implemented. See README.md
-for the status, the build instructions and the hardware requirements.
-
-The example directory contains all running demos.
-
-Joystick1 keys: Cursor keys+ Ctrl (Fire)

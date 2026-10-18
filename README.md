@@ -184,7 +184,7 @@ button.
 
 There is no menu and no file chooser. Programs are loaded with the file name on
 the command line or with `Ctrl+L`, which loads a `.hex` or `.obj` file (the first
-one the file system lists) from the directory that was used last (it is kept in `~/.config/xgsemu` on Linux and
+one by name) from the directory that was used last (it is kept in `~/.config/xgsemu` on Linux and
 macOS and in `%APPDATA%\XGSEmu` on Windows, and starts as the current directory).
 
 ## Controls
@@ -192,7 +192,7 @@ macOS and in `%APPDATA%\XGSEmu` on Windows, and starts as the current directory)
 | Key | Action |
 |---|---|
 | Arrow keys | Joystick directions |
-| Left or right Ctrl | Fire button |
+| Space or Ctrl (left or right) | Fire button |
 | F5 | Reset |
 | F11 | Full screen on/off |
 | Ctrl+L | Load a `.hex`/`.obj` file from the last used directory |
@@ -283,3 +283,7 @@ This program is free software; you can redistribute it and/or modify it under th
 terms of the GNU General Public License as published by the Free Software
 Foundation; either version 2 of the License, or (at your option) any later
 version. See `COPYING`.
+
+## Author
+
+Rainer Blessing, <rainer@theblessing.net>, <http://rainerblessing.com>

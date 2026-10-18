@@ -123,11 +123,6 @@ endif()
 # Install the executable
 install(TARGETS xgsemu DESTINATION bin)
 
-# Install README.htm if it exists
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/README.htm 
-        DESTINATION share/xgsemu
-        OPTIONAL)
-
 # Git Archive Funktionalität
 find_package(Git)
 if(GIT_FOUND)
