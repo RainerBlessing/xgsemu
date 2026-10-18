@@ -8,6 +8,7 @@
 
 
 #include <stdio.h>
+#include <string.h>
 #include "hex_file.h"
 
 int HexFile::parse_hex_digit( char **p )
@@ -19,7 +20,8 @@ int HexFile::parse_hex_digit( char **p )
 		r = 10 + **p - 'A';
 	else if ( ( ( **p ) >= 'a' ) && ( ( **p ) <= 'f' ) )
 		r = 10 + **p - 'a';
-	( *p ) ++;
+	if ( r >= 0 )
+		( *p ) ++;
 	return ( r );
 }
 
@@ -42,9 +44,11 @@ int HexFile::parse_hex_digits( char **p, int digits, u8 * checksum )
 bool HexFile::readFile(const char *fn, sx_t * sx )
 {
 	bool r = 0;
+	bool seen_end = false;
 	FILE *f = NULL;
 	char *p;
-	char buf[ 100 ];
+	// a record has at most 255 data bytes: ':', 2 + 4 + 2 + 510 + 2 digits, a line ending and the 0
+	char buf[ 600 ];
 	int i;
 	u8 checksum;
 	int byte_count;
@@ -70,6 +74,16 @@ bool HexFile::readFile(const char *fn, sx_t * sx )
 
 	while ( fgets( &buf[ 0 ], sizeof( buf ), f ) )
 	{
+		size_t length = strlen( buf );
+		if ( length == sizeof( buf ) - 1 && buf[ length - 1 ] != '\n' )
+		{
+			int next = fgetc( f );
+			if ( next != EOF )
+			{
+				fprintf( stderr, "error reading hex file: line too long\n" );
+				goto error;
+			}
+		}
 		checksum = 0;
 		p = &buf[ 0 ];
 		while ( ( *p ) && ( ( *p ) != ':' ) )
@@ -104,12 +118,31 @@ bool HexFile::readFile(const char *fn, sx_t * sx )
 			       );
 			goto error;
 		}
+		if ( record_type == 2 || record_type == 4 )
+		{
+			/* The extended address records only say "address 0", as gpasm writes them. Any
+			   other address would put the data somewhere else. */
+			for ( i = 0; i < byte_count; i++ )
+			{
+				byte = parse_hex_digits( &p, 2, &checksum );
+				if ( byte < 0 )
+				{
+					fprintf( stderr,
+					         "error reading hex file: bogus data byte in record type %02x\n",
+					         record_type );
+					goto error;
+				}
+				if ( byte != 0 )
+				{
+					fprintf( stderr,
+					         "error reading hex file: extended addresses are not supported\n" );
+					goto error;
+				}
+			}
+			continue;
+		}
 		if ( record_type > 1 )
 		{
-			/* Ignore expected extra gpasm data, but warn about others */
-			if ( ( record_type == 0x04 ) && ( byte_count == 0x02 ) &&
-			        ( address == 0x0000 ) )
-				continue;
 			fprintf( stderr,
 			         "warning: unknown record type %02x in hex file\n",
 			         record_type );
@@ -132,6 +165,7 @@ bool HexFile::readFile(const char *fn, sx_t * sx )
 				         address + i );
 				goto error;
 			}
+			/* behind the fuse words the SX-Key writes more words of its own */
 			if ( ( address + i ) >= ( ARRAY_SIZE * 2 ) )
 			{
 				fprintf( stderr,
@@ -160,9 +194,24 @@ bool HexFile::readFile(const char *fn, sx_t * sx )
 			         "error reading hex file: incorrect checksum\n" );
 			goto error;
 		}
-		if ( byte_count == 0 )
-			break;              /* logical end of file */
+		if ( record_type == 1 )
+		{
+			seen_end = true;       /* logical end of file */
+			break;
+		}
 	}
+
+	if ( ferror( f ) )
+	{
+		perror( fn );
+		goto error;
+	}
+	if ( !seen_end )
+		fprintf( stderr, "warning: no end record in hex file\n" );
+
+	/* the words of the SX have 12 bits */
+	for ( i = 0; i <= FUSEX_LOC; i++ )
+		sx->rom[ i ] &= 0x0fff;
 
 	r = 1;
 
@@ -249,11 +298,19 @@ bool HexFile::writeFile( const char *fn, sx_t * sx )
 	writeByte( f, 256 - checksum, NULL );
 	fprintf( f, "\n" );
 
+	if ( ferror( f ) )
+	{
+		perror( fn );
+		goto error;
+	}
 	r = true;
 
 error:
-	if ( f != NULL )
-		fclose( f );
+	if ( f != NULL && fclose( f ) != 0 )
+	{
+		perror( fn );
+		r = false;
+	}
 	return ( r );
 }
 

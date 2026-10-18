@@ -48,13 +48,20 @@ bool ObjFile::readFile(const char *fn, sx_t * sx)
 
 	u8 image[SX_MAX_ROM_SIZE * 2];
 	size_t bytes = fread(image, sizeof(u8), sizeof(image), f);
+	bool readFailed = ferror(f) != 0;
+	fclose(f);
+	if (readFailed)
+	{
+		perror(fn);
+		return false;
+	}
 	for (size_t word = 0; word * 2 < bytes; word++)
 	{
 		// a missing high byte (odd file size) stays as in the erased word
 		u16 high = (word * 2 + 1 < bytes) ? image[word * 2 + 1] : 0x0f;
-		sx->rom[word] = image[word * 2] | (high << 8);
+		// the words of the SX have 12 bits
+		sx->rom[word] = (image[word * 2] | (high << 8)) & 0x0fff;
 	}
-	fclose(f);
 	return true;
 }
 

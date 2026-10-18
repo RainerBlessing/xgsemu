@@ -103,16 +103,16 @@ protected:
 };
 
 TEST_F(HexFileReadTest, BytesFormLittleEndianWords) {
-    TestFile file(".hex", hexRecord(0x0010, 0, {0x34, 0x12, 0x78, 0x06}) + END);
+    TestFile file(".hex", hexRecord(0x0010, 0, {0x34, 0x02, 0x78, 0x06}) + END);
     ASSERT_TRUE(read(file));
-    EXPECT_EQ(0x1234, rom.sx.rom[8]);
+    EXPECT_EQ(0x0234, rom.sx.rom[8]);
     EXPECT_EQ(0x0678, rom.sx.rom[9]);
 }
 
 TEST_F(HexFileReadTest, AnOddStartAddressFillsTheHighByteOfAWord) {
-    TestFile file(".hex", hexRecord(0x0001, 0, {0xab}) + END);
+    TestFile file(".hex", hexRecord(0x0001, 0, {0x0a}) + END);
     ASSERT_TRUE(read(file));
-    EXPECT_EQ(0xabff, rom.sx.rom[0]);   // the low byte is still the erased 0xff
+    EXPECT_EQ(0x0aff, rom.sx.rom[0]);   // the low byte is still the erased 0xff
 }
 
 TEST_F(HexFileReadTest, EverythingNotInTheFileIsLeftErased) {
@@ -133,13 +133,13 @@ TEST_F(HexFileReadTest, SeveralRecordsAreCombined) {
 }
 
 TEST_F(HexFileReadTest, LowerCaseHexDigitsAreAccepted) {
-    std::string line = hexRecord(0x0000, 0, {0xab, 0xcd});
+    std::string line = hexRecord(0x0000, 0, {0xab, 0x0d});
     for (size_t i = 1; i < line.size(); i++) {
         line[i] = tolower(line[i]);
     }
     TestFile file(".hex", line + END);
     ASSERT_TRUE(read(file));
-    EXPECT_EQ(0xcdab, rom.sx.rom[0]);
+    EXPECT_EQ(0x0dab, rom.sx.rom[0]);
 }
 
 TEST_F(HexFileReadTest, WindowsLineEndingsAreAccepted) {
@@ -252,6 +252,43 @@ TEST_F(HexFileReadTest, ARecordThatReachesBehindTheRomImageIsAnError) {
     TestFile file(".hex", hexRecord(last, 0, {0x01, 0x02, 0x03}) + END);
     EXPECT_FALSE(read(file));
     EXPECT_TRUE(rom.guardIntact());
+}
+
+// The end of the file is the end record, not any record without data.
+TEST_F(HexFileReadTest, ADataRecordWithoutDataIsNotTheEnd) {
+    TestFile file(".hex", hexRecord(0x0000, 0, {}) + hexRecord(0x0000, 0, {0x07, 0x00}) + END);
+    ASSERT_TRUE(read(file));
+    EXPECT_EQ(0x0007, rom.sx.rom[0]);
+}
+
+// Assemblers write records of up to 255 bytes.
+TEST_F(HexFileReadTest, ARecordWithTheMostDataBytesIsLoaded) {
+    std::vector<int> data;
+    for (int i = 0; i < 254; i++) {
+        data.push_back(i % 2 ? 0x01 : i / 2 + 1);
+    }
+    TestFile file(".hex", hexRecord(0x0000, 0, data) + END);
+    ASSERT_TRUE(read(file));
+    EXPECT_EQ(0x0101, rom.sx.rom[0]);
+    EXPECT_EQ(0x0102, rom.sx.rom[1]);
+    EXPECT_EQ(0x017f, rom.sx.rom[126]);
+    EXPECT_EQ(0xfff, rom.sx.rom[127]);
+}
+
+TEST_F(HexFileReadTest, ALineThatIsMuchTooLongIsAnError) {
+    TestFile file(".hex", ":" + std::string(2000, '0') + "\n" + END);
+    EXPECT_FALSE(read(file));
+}
+
+TEST_F(HexFileReadTest, OnlyTwelveBitsOfAWordAreKept) {
+    TestFile file(".hex", hexRecord(0x0000, 0, {0x34, 0xf2}) + END);
+    ASSERT_TRUE(read(file));
+    EXPECT_EQ(0x0234, rom.sx.rom[0]);
+}
+
+TEST_F(HexFileReadTest, AnExtendedAddressOtherThanZeroIsAnError) {
+    TestFile file(".hex", hexRecord(0x0000, 4, {0x00, 0x01}) + hexRecord(0x0000, 0, {0x07, 0x00}) + END);
+    EXPECT_FALSE(read(file));
 }
 
 class HexFileWriteTest : public ::testing::Test {

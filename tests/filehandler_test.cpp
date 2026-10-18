@@ -74,6 +74,12 @@ TEST_F(FileHandlerTest, AFileNameWithoutAnExtensionIsAnError) {
     EXPECT_TRUE(untouched());
 }
 
+TEST_F(FileHandlerTest, AnExtensionNeedsItsDot) {
+    TestFile file("hex", hexProgram());
+    EXPECT_FALSE(FileHandler::readFile(file.name(), rom));
+    EXPECT_TRUE(untouched());
+}
+
 // The fuse words are part of the program file: the FUSEX word has the CF bit that decides
 // whether ADD and SUB take the carry flag as input.
 TEST_F(FileHandlerTest, ReturnsTheFusexWordOfAHexFile) {

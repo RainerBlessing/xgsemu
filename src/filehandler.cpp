@@ -45,19 +45,20 @@ bool FileHandler::readFile(const char *fn, u16 * rom)
 bool FileHandler::readFile(const char *fn, u16 * rom, u16 * fusex)
 {
     size_t fn_length = strlen(fn);
-    if (fn_length < 3) {
+    if (fn_length < 4) {
         return false;
     }
 
-    sx_t sx;
-    const char* extension = fn + fn_length - 3;
-    if (str_case_compare("hex", extension) == 0)
+    sx_t sx = sx_t();
+    // the extension, with the dot
+    const char* extension = fn + fn_length - 4;
+    if (str_case_compare(".hex", extension) == 0)
     {
         if (!HexFile::readFile(fn, &sx)) {
             return false;
         }
     }
-    else if (str_case_compare("obj", extension) == 0)
+    else if (str_case_compare(".obj", extension) == 0)
     {
         ObjFile of;
         if (!of.readFile(fn, &sx)) {
@@ -68,7 +69,7 @@ bool FileHandler::readFile(const char *fn, u16 * rom, u16 * fusex)
     {
         return false;
     }
-    memcpy(rom, sx.rom, 4096*2);
+    memcpy(rom, sx.rom, SX_MAX_ROM_SIZE * sizeof(u16));
     *fusex = sx.rom[FUSEX_LOC];
     return true;
 }
