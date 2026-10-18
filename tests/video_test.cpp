@@ -176,8 +176,7 @@ protected:
     }
 
     // Only every second frame is drawn: the first frame has just the vsync, the line is in the
-    // second one. (A line of the first frame would leave 'line' set, and the first call after the
-    // next vsync would draw a stray fragment.)
+    // second one.
     void drawTwice(const std::vector<int>& colours, const std::vector<int>& durations) {
         startFrames();
         startFrames();
@@ -207,6 +206,20 @@ TEST_F(VideoPictureTest, AFragmentIsDrawnInTwoRows) {
     EXPECT_NE(0u, pixel(100, row));
     EXPECT_EQ(pixel(100, row), pixel(100, row + 1));
     EXPECT_EQ(0u, pixel(100, row + 2));
+}
+
+// The colour burst of the last line of a frame says nothing about the next frame: the first
+// fragments after its vsync were drawn into the top rows with the state of that old line.
+TEST_F(VideoPictureTest, NothingIsDrawnAfterTheVsyncBeforeTheFirstLineOfTheFrame) {
+    drawTwice({0xff}, {4400});         // a frame with a line
+    startFrames();                     // the next vsync: this frame is not drawn
+    startFrames();                     // and this one is
+    signal(video, cycle, 100, 0xff);
+    signal(video, cycle, 500, SYNC);
+    for (int x = 0; x < video.width(); x++) {
+        EXPECT_EQ(0u, pixel(x, 0)) << "column " << x;
+        EXPECT_EQ(0u, pixel(x, 1)) << "column " << x;
+    }
 }
 
 // Chroma 15 is grey: the luminance 6..15 gives the level 26..255, below it is black.

@@ -139,6 +139,7 @@ void Video::startFrame()
 	fragmentcounter = yc = 0;
 	y = 0;
 	vsync = true;
+	line = false; // the colour burst of the last line of the old frame says nothing about the new one
 	frame ^= 1; // only every second frame is drawn
 }
 
