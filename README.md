@@ -45,11 +45,11 @@ window and sound, for four of the example programs:
 | Build | Speed compared to the real XGS ME |
 |---|---|
 | Release (`-DCMAKE_BUILD_TYPE=Release`) | 4.3 to 6.6 times faster |
-| Debug (the default of the CMake file) | only 1.2 to 2.0 times faster |
+| Debug (`-DCMAKE_BUILD_TYPE=Debug`) | only 1.2 to 2.0 times faster |
 
 So:
 
-- **Use a Release build.** A Debug build is too slow on most PCs to run at 100%.
+- **Use a Release build** (the default of the CMake file). A Debug build is too slow on most PCs to run at 100%.
 - With a Release build, a PC with about a third of the single core speed of that
   CPU should still reach 100% (an estimate, not measured). Slow systems such as a
   Raspberry Pi are borderline and untested.
@@ -83,11 +83,12 @@ mkdir build
 cd build
 ```
 
-2. Configure the project. Without `CMAKE_BUILD_TYPE` CMake builds the slow Debug
-   version, so ask for Release:
+2. Configure the project. Without `CMAKE_BUILD_TYPE` CMake builds Release, the
+   fast version. For debugging ask for the slow Debug version with
+   `-DCMAKE_BUILD_TYPE=Debug`:
 
 ```bash
-cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake ..
 ```
 
 3. Build:

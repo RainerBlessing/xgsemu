@@ -9,12 +9,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Build type Konfiguration (Debug/Release)
 if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Choose the build type: Debug or Release" FORCE)
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the build type: Debug or Release" FORCE)
 endif()
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Debug Release)
 
 # Compiler flags basierend auf Build-Typ
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive -Wno-write-strings")
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0 -DDEBUG")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
 
@@ -75,11 +74,6 @@ target_compile_definitions(xgsemu PRIVATE
     XGSE_VERSION="${PROJECT_VERSION}"
 )
 
-# Füge NDEBUG nur für Release-Builds hinzu
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    target_compile_definitions(xgsemu PRIVATE NDEBUG)
-endif()
-
 target_compile_definitions(xgsemu PRIVATE _THREAD_SAFE)
 
 # Browser version: xgsemu.html + .js + .wasm + .data (the examples), see build-web.sh
@@ -103,6 +97,7 @@ if(NOT EMSCRIPTEN)
     add_executable(sxdis tools/sxdis.cpp src/hex_file.cpp)
     target_link_libraries(sxdis sxcpu)
     target_include_directories(sxdis PRIVATE src)
+    install(TARGETS sxasm sxdis DESTINATION bin)
 endif()
 
 # Install the executable
@@ -176,7 +171,10 @@ if(BUILD_TESTS)
         FetchContent_MakeAvailable(googletest)
 
         # Bibliothek aus deinem Projekt
-        add_library(xgsemu_lib STATIC ${SOURCES})
+        # everything but main(): the tests bring their own
+        set(LIB_SOURCES ${SOURCES})
+        list(FILTER LIB_SOURCES EXCLUDE REGEX "src/main\\.cpp$")
+        add_library(xgsemu_lib STATIC ${LIB_SOURCES})
         target_link_libraries(xgsemu_lib sxcpu ${SDL2_LIBRARIES})
         if(UNIX)
           target_link_libraries(xgsemu_lib pthread)
