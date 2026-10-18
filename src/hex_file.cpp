@@ -87,6 +87,7 @@ bool HexFile::readFile(const char *fn, sx_t * sx, std::string * error )
 	for ( int i = 0; i < SX_ID_SIZE; i++ )
 		sx->rom[ ID_LOC + i ] = 0xfff;
 
+	bool seenEnd = false;
 	int lineNumber = 0;
 	while ( fgets( &buf[ 0 ], sizeof( buf ), f ) )
 	{
@@ -159,11 +160,17 @@ bool HexFile::readFile(const char *fn, sx_t * sx, std::string * error )
 		if ( checksum != 0 )
 			return fail( error, lineError( lineNumber, "incorrect checksum" ) );
 		if ( record_type == 1 )
-			break;              /* logical end of file */
+		{
+			seenEnd = true;     /* logical end of file */
+			break;
+		}
 	}
 
 	if ( ferror( f ) )
 		return fail( error, strerror( errno ) );
+	/* a file that stops early would load as a program with a hole at the end */
+	if ( !seenEnd )
+		return fail( error, "no end record" );
 
 	/* the words of the SX have 12 bits */
 	for ( int i = 0; i <= FUSEX_LOC; i++ )

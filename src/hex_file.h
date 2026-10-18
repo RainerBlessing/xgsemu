@@ -22,7 +22,8 @@ public:
 	HexFile() {}
 	/**
 	 * Reads the words of a hex file: ROM, ID and fuses. The words have 12 bits. Lines that are no
-	 * records and record types that are not understood are ignored, so is a missing end record.
+	 * records and record types that are not understood are ignored. The file has to end with the
+	 * end record.
 	 * @param error NULL, or receives the reason (with the line number) if the file is refused
 	 * @return false if the file cannot be read or is broken
 	 */

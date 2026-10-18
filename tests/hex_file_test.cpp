@@ -178,14 +178,23 @@ TEST_F(HexFileReadTest, DataAfterTheEndRecordIsNotLoaded) {
     EXPECT_EQ(0xfff, rom.sx.rom[0]);
 }
 
-TEST_F(HexFileReadTest, AMissingEndRecordIsNotAnError) {
+// A file that stops early would load as a program with a hole at the end.
+TEST_F(HexFileReadTest, AMissingEndRecordIsAnError) {
     TestFile file(".hex", hexRecord(0x0000, 0, {0x07, 0x00}));
-    EXPECT_TRUE(read(file));
-    EXPECT_EQ(0x0007, rom.sx.rom[0]);
+    std::string error;
+    EXPECT_FALSE(HexFile::readFile(file.name(), &rom.sx, &error));
+    EXPECT_EQ("no end record", error);
 }
 
-TEST_F(HexFileReadTest, AnEmptyFileIsAnEmptyRom) {
+TEST_F(HexFileReadTest, AnEmptyFileIsAnError) {
     TestFile file(".hex", "");
+    std::string error;
+    EXPECT_FALSE(HexFile::readFile(file.name(), &rom.sx, &error));
+    EXPECT_EQ("no end record", error);
+}
+
+TEST_F(HexFileReadTest, AFileWithOnlyTheEndRecordIsAnEmptyProgram) {
+    TestFile file(".hex", END);
     EXPECT_TRUE(read(file));
     EXPECT_EQ(0xfff, rom.sx.rom[0]);
 }
