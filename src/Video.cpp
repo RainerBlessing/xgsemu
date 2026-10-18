@@ -5,20 +5,6 @@
 
 Video::Video()
 {
-	Uint32 rmask, gmask, bmask, amask;
-
-	#if SDL_BYTEORDER == SDL_BIG_ENDIAN
-	rmask = 0xff000000;
-	gmask = 0x00ff0000;
-	bmask = 0x0000ff00;
-	amask = 0x000000ff;
-	#else
-	rmask = 0x000000ff;
-	gmask = 0x0000ff00;
-	bmask = 0x00ff0000;
-	amask = 0xff000000;
-	#endif
-	//screen = SDL_CreateRGBSurface(SDL_SWSURFACE,526, 520, 32, rmask, gmask, bmask, 0);
 screen = SDL_CreateRGBSurface(0, 560, 525, 32, 
                            0x00FF0000,   // R
                            0x0000FF00,   // G

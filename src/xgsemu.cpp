@@ -31,6 +31,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <vector>
+#include <map>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -101,6 +102,7 @@ XGSEmu::XGSEmu(const std::string& appDir, const std::string& title)
     : window(NULL),
       renderer(NULL),
       texture(NULL),
+      emuDisplay(NULL),
       menuActive(false),
       video(NULL),
       cpu(NULL),
@@ -281,7 +283,6 @@ int XGSEmu::run(const std::string& hexFilePath) {
     const Uint64 counterFrequency = SDL_GetPerformanceFrequency();
     const Uint64 frameTicks = counterFrequency / TARGET_FPS;
     Uint64 nextFrame = SDL_GetPerformanceCounter();
-    int frameCount = 0;
     
     try {
         while (running) {
@@ -307,11 +308,6 @@ int XGSEmu::run(const std::string& hexFilePath) {
                 nextFrame = now;
             }
             
-            // Debug-Ausgabe alle 100 Frames
-            frameCount++;
-            //if (frameCount % 100 == 0) {
-            //    printf("Hauptschleife läuft: Frame %d\n", frameCount);
-            //}
         }
     } catch (std::exception& e) {
         printf("Exception in Hauptschleife: %s\n", e.what());
@@ -554,10 +550,7 @@ void XGSEmu::loadHexFile(const std::string& path) {
     
     // Create new video system
     video = new Video();
-    if (video == nullptr) {
-        printf("Fehler: Video-System konnte nicht erstellt werden!\n");
-        return;
-    }
+    
     
     emuDisplay = video->getScreen();
     if (emuDisplay == nullptr) {
@@ -718,6 +711,9 @@ void XGSEmu::openFileDialog() {
         closedir(dp);
     }
     
+    // The files come in the order of the directory, which is arbitrary: take the first by name.
+    std::sort(files.begin(), files.end());
+
     // Wenn es Dateien gibt, lade die erste (in einer realen Implementierung würden wir den Benutzer wählen lassen)
     if (!files.empty()) {
         std::string fullPath = lastDirectory + "/" + files[0];

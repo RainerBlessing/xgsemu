@@ -90,6 +90,14 @@ TEST_F(ToolsTest, MissingSourceFileFails) {
     EXPECT_EQ(1, result.exitCode);
 }
 
+TEST_F(ToolsTest, ADirectoryAsSourceFailsAndWritesNothing) {
+    std::string out = dir + "/from_directory.hex";
+    remove(out.c_str());
+    Result result = run(sxasm(quoted(dir) + " " + quoted(out)));
+    EXPECT_EQ(1, result.exitCode);
+    EXPECT_FALSE(std::ifstream(out.c_str()).good());
+}
+
 TEST_F(ToolsTest, MissingArgumentsShowTheUsage) {
     EXPECT_EQ(2, run(sxasm("")).exitCode);
     EXPECT_EQ(2, run(sxdis("")).exitCode);

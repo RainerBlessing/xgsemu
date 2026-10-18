@@ -3,7 +3,7 @@
 DisplayRect fitAspect(int windowWidth, int windowHeight, int aspectWidth, int aspectHeight)
 {
 	DisplayRect rect = {0, 0, 0, 0};
-	if (windowWidth <= 0 || windowHeight <= 0)
+	if (windowWidth <= 0 || windowHeight <= 0 || aspectWidth <= 0 || aspectHeight <= 0)
 	{
 		return rect;
 	}

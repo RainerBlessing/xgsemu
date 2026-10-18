@@ -23,14 +23,10 @@
 
 #include <SDL.h>
 #include <string>
-#include <map>
 
 class Video;
 class Cpu;
 class Bu8763;
-
-const int WINDOW_WIDTH = 560;  // Entspricht der Surface-Breite in Video.cpp
-const int WINDOW_HEIGHT = 525; // Entspricht der Surface-Höhe in Video.cpp
 
 /**
  * SDL2-based XGS Emulator

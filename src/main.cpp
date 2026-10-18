@@ -51,7 +51,31 @@ std::string findAppPath(const char* argv0) {
 }
 
 int main(int argc, char* argv[]) {
-    // Initialize SDL (for SDL 1.2)
+    // Process command line arguments before anything is started
+    std::string hexFilePath = "";
+    
+    for (int i = 1; i < argc; i++) {
+        std::string argument = argv[i];
+        if (argument == "-h" || argument == "--help") {
+            printf("usage: %s [program.hex|program.obj]\n", argv[0]);
+            return 0;
+        }
+        if (argument == "-v" || argument == "--version") {
+            printf("XGSEmu %s\n", XGSE_VERSION);
+            return 0;
+        }
+        if (argument[0] == '-') {
+            fprintf(stderr, "unknown option %s\nusage: %s [program.hex|program.obj]\n", argv[i], argv[0]);
+            return 2;
+        }
+        if (!hexFilePath.empty()) {
+            fprintf(stderr, "only one program can be loaded\nusage: %s [program.hex|program.obj]\n", argv[0]);
+            return 2;
+        }
+        hexFilePath = argument;
+    }
+    
+    // Initialize SDL
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) {
         printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
         return 1;
@@ -60,16 +84,6 @@ int main(int argc, char* argv[]) {
     // Get application directory
     std::string appDir = findAppPath(argv[0]);
     
-    // Process command line arguments
-    std::string hexFilePath = "";
-    
-    for (int i = 1; i < argc; i++) {
-        // If argument doesn't start with "-", treat it as hex file path
-        if (argv[i][0] != '-') {
-            hexFilePath = argv[i];
-            break;
-        }
-    }
     
     // Create emulator instance
 #ifdef __EMSCRIPTEN__

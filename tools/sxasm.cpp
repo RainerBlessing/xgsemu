@@ -2,6 +2,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <sys/stat.h>
 #include "asm.h"
 #include "hex_file.h"
 
@@ -13,6 +14,13 @@ int main(int argc, char** argv)
 	{
 		std::cerr << "usage: sxasm source.asm output.hex\n";
 		return 2;
+	}
+	// a directory can be opened as a stream but has nothing to read
+	struct stat info;
+	if (stat(argv[1], &info) == 0 && S_ISDIR(info.st_mode))
+	{
+		std::cerr << argv[1] << ": is a directory\n";
+		return 1;
 	}
 	std::ifstream file(argv[1]);
 	if (!file)

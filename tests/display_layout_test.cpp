@@ -44,3 +44,12 @@ TEST(DisplayLayoutTest, AnEmptyWindowGivesAnEmptyRectangle) {
     EXPECT_EQ(0, r.w);
     EXPECT_EQ(0, r.h);
 }
+
+TEST(DisplayLayoutTest, ANonPositiveAspectRatioGivesAnEmptyRectangle) {
+    DisplayRect r = fitAspect(800, 600, 4, 0);
+    EXPECT_EQ(0, r.w);
+    EXPECT_EQ(0, r.h);
+    r = fitAspect(800, 600, 0, 3);
+    EXPECT_EQ(0, r.w);
+    EXPECT_EQ(0, r.h);
+}
