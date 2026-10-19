@@ -64,6 +64,7 @@
     <h2>How to play</h2>
     <p class="touchhelp">On a phone or tablet the round pad under the picture is the joystick (4 directions; the small button switches to 8 directions) and the FIRE button is the fire button.</p>
     <p>Pick a program from the list, or load your own <code>.hex</code> / <code>.obj</code> file for the XGameStation Micro Edition. Click the picture once so the page receives your keystrokes and the browser allows sound.</p>
+    <p>To start a program from the list directly, open the page with its name as parameter, for example <code>shell.html?rom=ms_pac_man.hex</code>.</p>
     <table>
       <tr><th>Key</th><th>Joystick</th></tr>
       <tr><td><kbd>&uarr;</kbd> <kbd>&darr;</kbd> <kbd>&larr;</kbd> <kbd>&rarr;</kbd></td><td>Move (up, down, left, right)</td></tr>
@@ -96,12 +97,28 @@
       $('version').textContent = 'XGSEmu ' + Module.ccall('xgsVersion', 'string', [], []);
       var def = names.indexOf('ms_pac_man.hex');
       if (def >= 0) sel.selectedIndex = def;
+      var fromUrl = romIndex(names, romFromUrl());
+      if (fromUrl >= 0) sel.selectedIndex = fromUrl;
       runExample();
     }
   };
   function startProgram(path) {
     try { Module.ccall('xgsLoad', null, ['string'], [path]); } catch (e) { console.error('load', e, e.errno, e.stack); }
     $('canvas').focus();
+  }
+  // ?rom=name of an entry in the list (with or without .hex / .obj, case ignored)
+  function romFromUrl() {
+    try { return new URLSearchParams(location.search).get('rom'); } catch (e) { return null; }
+  }
+  function romIndex(names, rom) {
+    if (!rom) return -1;
+    var want = rom.toLowerCase();
+    for (var i = 0; i < names.length; i++) {
+      var name = names[i].toLowerCase();
+      if (name === want || name.replace(/\.(hex|obj)$/, '') === want) return i;
+    }
+    console.warn('no program ' + rom + ' in the list, using the default');
+    return -1;
   }
   function runExample() { startProgram('/examples/' + $('examples').value); }
   $('loadExample').onclick = runExample;
